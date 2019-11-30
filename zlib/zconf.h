@@ -176,6 +176,7 @@ warning C4127: conditional expression is constant
 #  endif
 #  define zlibCompileFlags      z_zlibCompileFlags
 #  define zlibVersion           z_zlibVersion
+#  define z_errmsg              z_z_errmsg
 
 /* all zlib typedefs in zlib.h and zconf.h */
 #  define Byte                  z_Byte
