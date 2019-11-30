@@ -43,6 +43,7 @@
 #endif
 
 
+#if defined(OPENNURBS_ZLIB_LIB_DIR) && OPENNURBS_ZLIB_LIB_DIR
 #if defined(_LIB) && defined(_MT) && !defined(_DLL)
 // using Microsoft statically linked C-runtime
 #pragma message ( "Linking with zlib_mt.lib in " OPENNURBS_PP2STR(OPENNURBS_ZLIB_LIB_DIR) )
@@ -51,6 +52,7 @@
 // using Microsoft DLL C-runtime
 #pragma message ( "Linking with zlib.lib in " OPENNURBS_PP2STR(OPENNURBS_ZLIB_LIB_DIR) )
 #pragma comment(lib, "\"" OPENNURBS_ZLIB_LIB_DIR "/" "zlib.lib" "\"")
+#endif
 #endif
 
 #endif

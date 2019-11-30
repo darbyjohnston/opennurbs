@@ -368,7 +368,7 @@ add_library(opennurbs ${ON_INC} ${ON_SRC})
 target_compile_definitions(opennurbs PRIVATE ON_COMPILING_OPENNURBS)
 if(WIN32)
     target_compile_definitions(opennurbs PRIVATE
-        OPENNURBS_INPUT_LIBS_DIR=""
+        OPENNURBS_ZLIB_LIB_DIR=0
         UNICODE
         WIN64)
 endif()
