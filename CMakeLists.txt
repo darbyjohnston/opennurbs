@@ -367,6 +367,10 @@ if(WIN32)
 endif()
 
 add_library(opennurbs ${ON_INC} ${ON_SRC})
+set_target_properties(
+    opennurbs
+    PROPERTIES
+    CXX_STANDARD 11)
 target_compile_definitions(opennurbs PRIVATE ON_COMPILING_OPENNURBS)
 if(WIN32)
     target_compile_definitions(opennurbs PRIVATE
