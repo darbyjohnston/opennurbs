@@ -25,6 +25,8 @@
 #include "opennurbs_win_dwrite.h"
 #include "opennurbs_apple_nsfont.h"
 
+#include <memory>
+
 ON_PANOSE1::FamilyKind ON_PANOSE1::FamilyKindFromUnsigned(
   unsigned int unsigned_panose_family_kind
 )
