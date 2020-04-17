@@ -361,8 +361,10 @@ set(ON_SRC
     zlib/uncompr.c
     zlib/zutil.c)
 
-# https://gitlab.kitware.com/cmake/cmake/issues/17967
-string (REPLACE "/DWIN32" "" CMAKE_CXX_FLAGS ${CMAKE_CXX_FLAGS})
+if(WIN32)
+    # https://gitlab.kitware.com/cmake/cmake/issues/17967
+    string (REPLACE "/DWIN32" "" CMAKE_CXX_FLAGS ${CMAKE_CXX_FLAGS})
+endif()
 
 add_library(opennurbs ${ON_INC} ${ON_SRC})
 target_compile_definitions(opennurbs PRIVATE ON_COMPILING_OPENNURBS)
