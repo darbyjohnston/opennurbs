@@ -10,7 +10,6 @@
 
 #include "opennurbs_subd_data.h"
 
-/* $NoKeywords: $ */
 /*
 //
 // Copyright (c) 1993-2015 Robert McNeel & Associates. All rights reserved.
@@ -389,6 +388,42 @@ const class ON_SubDVertex* ON_SubDEdgePtr::RelativeVertex(
   return nullptr;
 }
 
+const ON_3dPoint ON_SubDEdgePtr::RelativeControlNetPoint(
+  int relative_vertex_index
+) const
+{
+  const ON_SubDVertex* v = RelativeVertex(relative_vertex_index);
+  return (nullptr != v) ? v->ControlNetPoint() : ON_3dPoint::NanPoint;
+}
+
+const ON_Line ON_SubDEdgePtr::RelativeControlNetLine() const
+{
+  return ON_Line(RelativeControlNetPoint(0), RelativeControlNetPoint(1));
+}
+
+const ON_3dVector ON_SubDEdgePtr::RelativeControlNetDirection() const
+{
+  return RelativeControlNetLine().Direction();
+}
+
+double ON_SubDEdgePtr::RelativeSectorCoefficient(
+  int relative_vertex_index
+) const
+{
+  for (;;)
+  {
+    if (relative_vertex_index < 0 || relative_vertex_index>1)
+      break;
+    const ON_SubDEdge* edge = ON_SUBD_EDGE_POINTER(m_ptr);
+    if (nullptr == edge)
+      break;
+    if (0 != ON_SUBD_EDGE_DIRECTION(m_ptr))
+      relative_vertex_index = 1 - relative_vertex_index;
+    return edge->m_sector_coefficient[relative_vertex_index];
+  }
+  return ON_SubDSectorType::ErrorSectorCoefficient;
+}
+
 const ON_3dVector ON_SubDEdgePtr::RelativeDirection() const
 {
   for (;;)
@@ -441,6 +476,38 @@ const ON_SubDEdgePtr ON_SubDEdgePtr::Create(
   return ON_SubDEdgePtr::Create(edge_element.Edge(), edge_element.ComponentDirection());
 }
 
+const ON_SubDEdgePtr ON_SubDEdgePtr::CreateFromStartVertex(
+  const class ON_SubDEdge* edge,
+  const ON_SubDVertex* start_vertex
+)
+{
+  for (;;)
+  {
+    if (nullptr == edge || nullptr == start_vertex)
+      break;
+    if (edge->m_vertex[0] == edge->m_vertex[1])
+      break;
+    
+    ON__UINT_PTR dir;
+    if (start_vertex == edge->m_vertex[0])
+      dir = 0;
+    else if (start_vertex == edge->m_vertex[1])
+      dir = 1;
+    else
+      break;
+    return ON_SubDEdgePtr::Create(edge, dir);
+  }
+  return ON_SubDEdgePtr::Null;
+}
+
+const ON_SubDEdgePtr ON_SubDEdgePtr::CreateFromEndVertex(
+  const class ON_SubDEdge* edge,
+  const ON_SubDVertex* end_vertex
+)
+{
+  return CreateFromStartVertex(edge,end_vertex).Reversed();
+}
+
 //////////////////////////////////////////////////////////////////////////
 //
 // ON_SubDFacePtr
@@ -482,6 +549,11 @@ const ON_ComponentStatus ON_SubDFacePtr::Status() const
 {
   const ON_SubDFace* face = ON_SUBD_FACE_POINTER(m_ptr);
   return (nullptr == face) ? ON_ComponentStatus::NoneSet : face->m_status;
+}
+
+const ON_SubDFacePtr ON_SubDFacePtr::Reversed() const
+{
+  return ON_SubDFacePtr::Create(ON_SUBD_FACE_POINTER(m_ptr), 1 - (m_ptr & 1));
 }
 
 const ON_SubDFacePtr ON_SubDFacePtr::Create(
@@ -812,6 +884,25 @@ bool ON_SubDComponentPtr::SetMark(
   return (nullptr != c) ? c->m_status.SetRuntimeMark(bMark) : false;
 }
 
+ON__UINT8 ON_SubDComponentPtr::MarkBits() const
+{
+  const ON_SubDComponentBase* c = this->ComponentBase();
+  return (nullptr != c) ? c->m_status.MarkBits() : 0U;
+}
+
+ON__UINT8 ON_SubDComponentPtr::SetMarkBits(ON__UINT8 mark_bits) const
+{
+  const ON_SubDComponentBase* c = this->ComponentBase();
+  return (nullptr != c) ? c->m_status.SetMarkBits(mark_bits) : false;
+}
+
+ON__UINT8 ON_SubDComponentPtr::ClearMarkBits() const
+{
+  const ON_SubDComponentBase* c = this->ComponentBase();
+  return (nullptr != c) ? c->m_status.SetMarkBits(0) : false;
+}
+
+
 bool ON_SubDVertexPtr::Mark() const
 {
   const ON_SubDVertex* c = this->Vertex();
@@ -838,6 +929,23 @@ bool ON_SubDVertexPtr::SetMark(
   return (nullptr != c) ? c->m_status.SetRuntimeMark(bMark) : false;
 }
 
+ON__UINT8 ON_SubDVertexPtr::MarkBits() const
+{
+  const ON_SubDVertex* c = this->Vertex();
+  return (nullptr != c) ? c->m_status.MarkBits() : 0U;
+}
+
+ON__UINT8 ON_SubDVertexPtr::SetMarkBits(ON__UINT8 mark_bits) const
+{
+  const ON_SubDVertex* c = this->Vertex();
+  return (nullptr != c) ? c->m_status.SetMarkBits(mark_bits) : false;
+}
+
+ON__UINT8 ON_SubDVertexPtr::ClearMarkBits() const
+{
+  const ON_SubDVertex* c = this->Vertex();
+  return (nullptr != c) ? c->m_status.SetMarkBits(0) : false;
+}
 
 bool ON_SubDEdgePtr::Mark() const
 {
@@ -865,6 +973,23 @@ bool ON_SubDEdgePtr::SetMark(
   return (nullptr != c) ? c->m_status.SetRuntimeMark(bMark) : false;
 }
 
+ON__UINT8 ON_SubDEdgePtr::MarkBits() const
+{
+  const ON_SubDEdge* c = this->Edge();
+  return (nullptr != c) ? c->m_status.MarkBits() : 0U;
+}
+
+ON__UINT8 ON_SubDEdgePtr::SetMarkBits(ON__UINT8 mark_bits) const
+{
+  const ON_SubDEdge* c = this->Edge();
+  return (nullptr != c) ? c->m_status.SetMarkBits(mark_bits) : false;
+}
+
+ON__UINT8 ON_SubDEdgePtr::ClearMarkBits() const
+{
+  const ON_SubDEdge* c = this->Edge();
+  return (nullptr != c) ? c->m_status.SetMarkBits(0) : false;
+}
 
 bool ON_SubDFacePtr::Mark() const
 {
@@ -890,6 +1015,24 @@ bool ON_SubDFacePtr::SetMark(
 {
   const ON_SubDFace* c = this->Face();
   return (nullptr != c) ? c->m_status.SetRuntimeMark(bMark) : false;
+}
+
+ON__UINT8 ON_SubDFacePtr::MarkBits() const
+{
+  const ON_SubDFace* c = this->Face();
+  return (nullptr != c) ? c->m_status.MarkBits() : 0U;
+}
+
+ON__UINT8 ON_SubDFacePtr::SetMarkBits(ON__UINT8 mark_bits) const
+{
+  const ON_SubDFace* c = this->Face();
+  return (nullptr != c) ? c->m_status.SetMarkBits(mark_bits) : false;
+}
+
+ON__UINT8 ON_SubDFacePtr::ClearMarkBits() const
+{
+  const ON_SubDFace* c = this->Face();
+  return (nullptr != c) ? c->m_status.SetMarkBits(0) : false;
 }
 
 ON__UINT_PTR ON_SubDComponentPtr::ComponentDirection() const
@@ -923,7 +1066,7 @@ const ON_SubDComponentPtr ON_SubDComponentPtr::SetComponentDirection(ON__UINT_PT
   return component_ptr;
 }
 
-const ON_SubDComponentPtr ON_SubDComponentPtr::ToggleComponentDirection() const
+const ON_SubDComponentPtr ON_SubDComponentPtr::Reversed() const
 {
   return (0 != (m_ptr & ON_SUBD_COMPONENT_DIRECTION_MASK)) ? ClearComponentDirection() : SetComponentDirection();
 }
@@ -1323,6 +1466,11 @@ const ON_SubDComponentPtrPair ON_SubDComponentPtrPair::SwapPair() const
   return ON_SubDComponentPtrPair::Create(m_pair[1], m_pair[0]);
 }
 
+const ON_SubDComponentPtrPair ON_SubDComponentPtrPair::ReversedPair() const
+{
+  return ON_SubDComponentPtrPair::Create(m_pair[0].Reversed(), m_pair[1].Reversed());
+}
+
 const ON_SubDComponentPtr ON_SubDComponentPtrPair::First() const
 {
   return m_pair[0];
@@ -1331,6 +1479,36 @@ const ON_SubDComponentPtr ON_SubDComponentPtrPair::First() const
 const ON_SubDComponentPtr ON_SubDComponentPtrPair::Second() const
 {
   return m_pair[1];
+}
+
+bool ON_SubDComponentPtrPair::FirstIsNull() const
+{
+  return (0 == (ON_SUBD_COMPONENT_POINTER_MASK & m_pair[0].m_ptr));
+}
+
+bool ON_SubDComponentPtrPair::SecondIsNull() const
+{
+  return (0 == (ON_SUBD_COMPONENT_POINTER_MASK & m_pair[1].m_ptr));
+}
+
+bool ON_SubDComponentPtrPair::BothAreNull() const
+{
+  return (0 == (ON_SUBD_COMPONENT_POINTER_MASK & m_pair[0].m_ptr)) && 0 == (ON_SUBD_COMPONENT_POINTER_MASK & m_pair[1].m_ptr);
+}
+
+bool ON_SubDComponentPtrPair::FirstIsNotNull() const
+{
+  return m_pair[0].IsNotNull();
+}
+
+bool ON_SubDComponentPtrPair::SecondIsNotNull() const
+{
+  return m_pair[1].IsNotNull();
+}
+
+bool ON_SubDComponentPtrPair::BothAreNotNull() const
+{
+  return m_pair[0].IsNotNull() && m_pair[1].IsNotNull();
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -1613,6 +1791,20 @@ unsigned int ON_SubDVertex::MarkedEdgeCount() const
   return mark_count;
 }
 
+bool ON_SubDVertex::ClearEdgeMarks() const
+{
+  bool rc = true;
+  for (unsigned short vei = 0; vei < m_edge_count; ++vei)
+  {
+    const ON_SubDEdge* e = ON_SUBD_EDGE_POINTER(m_edges[vei].m_ptr);
+    if (nullptr == e)
+      rc = false;
+    else
+      e->m_status.ClearRuntimeMark();
+  }
+  return rc;
+}
+
 unsigned int ON_SubDVertex::MarkedFaceCount() const
 {
   unsigned int mark_count = 0;
@@ -1625,6 +1817,69 @@ unsigned int ON_SubDVertex::MarkedFaceCount() const
   return mark_count;
 }
 
+bool ON_SubDVertex::ClearFaceMarks() const
+{
+  bool rc = true;
+  for (unsigned short vfi = 0; vfi < m_face_count; ++vfi)
+  {
+    const ON_SubDFace* f = m_faces[vfi];
+    if (nullptr == f)
+      rc = false;
+    else
+      f->m_status.ClearRuntimeMark();
+  }
+  return rc;
+}
+
+
+unsigned int ON_SubDVertex::MinimumFaceEdgeCount() const
+{
+  unsigned short min_count = 0xFFFFU;
+  for (unsigned short vfi = 0; vfi < m_face_count; ++vfi)
+  {
+    const ON_SubDFace* f = m_faces[vfi];
+    if (nullptr != f && f->m_edge_count < min_count)
+      min_count = f->m_edge_count;
+  }
+  return min_count < 0xFFFFU ? min_count : 0;
+}
+
+unsigned int ON_SubDVertex::MaximumFaceEdgeCount() const
+{
+  unsigned short max_count = 0;
+  for (unsigned short vfi = 0; vfi < m_face_count; ++vfi)
+  {
+    const ON_SubDFace* f = m_faces[vfi];
+    if (nullptr != f && f->m_edge_count < max_count)
+      max_count = f->m_edge_count;
+  }
+  return max_count;
+}
+
+
+unsigned int ON_SubDVertex::MinimumEdgeFaceCount() const
+{
+  unsigned short min_count = 0xFFFFU;
+  for (unsigned short vei = 0; vei < m_edge_count; ++vei)
+  {
+    const ON_SubDEdge* e = ON_SUBD_EDGE_POINTER(m_edges[vei].m_ptr);
+    if (nullptr != e && e->m_face_count < min_count)
+      min_count = e->m_face_count;
+  }
+  return min_count < 0xFFFFU ? min_count : 0;
+}
+
+unsigned int ON_SubDVertex::MaximumEdgeFaceCount() const
+{
+  unsigned short max_count = 0;
+  for (unsigned short vei = 0; vei < m_edge_count; ++vei)
+  {
+    const ON_SubDEdge* e = ON_SUBD_EDGE_POINTER(m_edges[vei].m_ptr);
+    if (nullptr != e && e->m_face_count > max_count)
+    max_count = e->m_face_count;
+  }
+  return max_count;
+}
 
 unsigned int ON_SubDEdge::MarkedVertexCount() const
 {
@@ -1761,13 +2016,69 @@ bool ON_SubDVertex::IsSmoothOrCrease() const
   return (ON_SubD::VertexTag::Smooth == m_vertex_tag || ON_SubD::VertexTag::Crease == m_vertex_tag);
 }
 
+bool ON_SubDVertex::GetBoundaryVertexEdges(
+  ON_SubDEdgePtr* eptr0,
+  ON_SubDEdgePtr* eptr1
+) const
+{
+  unsigned int vbi[2] = {};
+  const bool rc = GetBoundaryVertexEdgeIndices(&vbi[0], &vbi[1]);
+  if (rc)
+  {
+    if (nullptr != eptr0)
+      *eptr0 = m_edges[vbi[0]];
+    if (nullptr != eptr1)
+      *eptr1 = m_edges[vbi[1]];
+  }
+  else
+  {
+    if (nullptr != eptr0)
+      *eptr0 = ON_SubDEdgePtr::Null;
+    if (nullptr != eptr1)
+      *eptr1 = ON_SubDEdgePtr::Null;
+  }
+  return rc;
+}
+
+bool ON_SubDVertex::GetBoundaryVertexEdgeIndices(
+  unsigned* vei0,
+  unsigned* vei1
+) const
+{
+  unsigned int vbi_count = 0;
+  unsigned int vbi[2] = {};
+  for (unsigned short vei = 0; vei < m_edge_count; vei++)
+  {
+    const ON_SubDEdge* e = m_edges[vei].Edge();
+    if (1 == e->m_face_count)
+    {
+      if (vbi_count < 2)
+        vbi[vbi_count++] = vei;
+      else
+      {
+        vbi_count = 0;
+        break;
+      }
+    }
+  }
+  if (2 != vbi_count)
+    vbi[0] = vbi[1] = ON_UNSET_UINT_INDEX;
+  if (nullptr != vei0)
+    *vei0 = vbi[0];
+  if (nullptr != vei1)
+    *vei1 = vbi[1];
+  return (2 == vbi_count);
+}
+
 const ON_SubDVertexEdgeProperties ON_SubDVertex::EdgeProperties() const
 {
   ON_SubDVertexEdgeProperties ep;
 
+  ep.m_edge_count = m_edge_count;
+  ep.m_face_count = m_face_count;
+
   bool bFirstEdge = true;
-  const unsigned short edge_count = m_edge_count;
-  for (unsigned short vei = 0; vei < edge_count; vei++)
+  for (unsigned short vei = 0; vei < ep.m_edge_count; vei++)
   {
     const ON_SubDEdge* e = ON_SUBD_EDGE_POINTER(m_edges[vei].m_ptr);
     if (nullptr == e)
@@ -1972,6 +2283,129 @@ bool ON_SubDVertex::HasBoundaryVertexTopology() const
       return true;
   }    
   return false;
+}
+
+const ON_SubDComponentPtrPair ON_SubDVertex::BoundaryEdgePair() const
+{
+  ON_SubDComponentPtrPair epair = ON_SubDComponentPtrPair::Null;
+  if (nullptr != m_edges && m_edge_count >= 2)
+  {
+    for (unsigned short vei = 0; vei < m_edge_count; ++vei)
+    {
+      ON_SubDEdgePtr eptr = m_edges[vei];
+      const ON_SubDEdge* e = ON_SUBD_EDGE_POINTER(eptr.m_ptr);
+      if (nullptr == e)
+        continue;
+      if (false == e->HasBoundaryEdgeTopology())
+        continue;
+      const ON__UINT_PTR edir = ON_SUBD_EDGE_DIRECTION(eptr.m_ptr);
+      if (this != e->m_vertex[edir])
+      {
+        // m_edges[vei] is corrupt ...
+        ON_SUBD_ERROR("m_edges[vei] has incorrect edge orientation flag.");
+        if (this == e->m_vertex[1 - edir])
+          eptr = eptr.Reversed(); // we can still return the requested information.
+        else
+          return ON_SubDComponentPtrPair::Null;
+      }
+      if (epair.m_pair[0].IsNull())
+        epair.m_pair[0] = ON_SubDComponentPtr::Create(eptr);
+      else if (epair.m_pair[1].IsNull())
+        epair.m_pair[1] = ON_SubDComponentPtr::Create(eptr);
+      else
+        return ON_SubDComponentPtrPair::Null; // 3 or more boundary edges
+    }
+  }
+  return (epair.m_pair[1].IsNotNull()) ? epair : ON_SubDComponentPtrPair::Null;
+}
+
+const ON_SubDComponentPtrPair ON_SubDVertex::CreasedEdgePair(bool bInteriorEdgesOnly) const
+{
+  ON_SubDComponentPtrPair creased_eptr_pair = ON_SubDComponentPtrPair::Null;
+  if (nullptr != m_edges && m_edge_count >= 2)
+  {
+    for (unsigned short vei = 0; vei < m_edge_count; ++vei)
+    {
+      const ON_SubDEdge* e = ON_SUBD_EDGE_POINTER(m_edges[vei].m_ptr);
+      if (nullptr == e)
+        continue;
+      if (bInteriorEdgesOnly && false == e->HasInteriorEdgeTopology(false))
+        continue;
+      if (ON_SubD::EdgeTag::Crease == e->m_edge_tag)
+      {
+        if (e == ON_SUBD_EDGE_POINTER(creased_eptr_pair.m_pair[0].m_ptr) || e == ON_SUBD_EDGE_POINTER(creased_eptr_pair.m_pair[1].m_ptr))
+        {
+          ON_SUBD_ERROR("Duplicate entries in m_edges[] list.");
+          continue;
+        }
+        if (creased_eptr_pair.FirstIsNull())
+          creased_eptr_pair.m_pair[0] = ON_SubDComponentPtr::Create(m_edges[vei]);
+        else if (creased_eptr_pair.SecondIsNull())
+          creased_eptr_pair.m_pair[1] = ON_SubDComponentPtr::Create(m_edges[vei]);
+        else
+          return ON_SubDComponentPtrPair::Null; // 3 or more creases
+      }
+    }
+  }
+  return creased_eptr_pair.SecondIsNull() ? ON_SubDComponentPtrPair::Null : creased_eptr_pair;
+}
+
+const ON_SubDEdgePtr ON_SubDVertex::CreasedEdge(bool bInteriorEdgesOnly) const
+{
+  ON_SubDEdgePtr creased_eptr = ON_SubDEdgePtr::Null;
+  if (nullptr != m_edges)
+  {
+    for (unsigned short vei = 0; vei < m_edge_count; ++vei)
+    {
+      const ON_SubDEdge* e = ON_SUBD_EDGE_POINTER(m_edges[vei].m_ptr);
+      if (nullptr == e)
+        continue;
+      if (bInteriorEdgesOnly && false == e->HasInteriorEdgeTopology(false))
+        continue;
+      if (ON_SubD::EdgeTag::Crease == e->m_edge_tag)
+      {
+        if (creased_eptr.IsNull())
+          creased_eptr = m_edges[vei];
+        else
+          return ON_SubDEdgePtr::Null; // 2 or more creases.
+      }
+    }
+  }
+  return creased_eptr;
+}
+
+bool ON_SubDVertexEdgeProperties::HasInteriorVertexTopology() const
+{
+  return 
+    m_null_edge_count == 0
+    && m_edge_count == m_face_count
+    && m_boundary_edge_count == 0
+    && m_interior_edge_count >= 2
+    && m_nonmanifold_edge_count == 0
+    ;
+}
+
+bool ON_SubDVertexEdgeProperties::HasBoundaryVertexTopology() const
+{
+  return
+    m_null_edge_count == 0
+    && m_edge_count == m_face_count+1
+    && m_boundary_edge_count == 2
+    && m_nonmanifold_edge_count == 0
+    ;
+}
+
+bool ON_SubDVertexEdgeProperties::HasManifoldVertexTopology() const
+{
+  return HasInteriorVertexTopology() || HasBoundaryVertexTopology();
+}
+
+bool ON_SubDVertexEdgeProperties::HasNonmanifoldVertexTopology() const
+{
+  return  
+    (m_null_edge_count == 0)
+    && (m_wire_edge_count > 0 || m_nonmanifold_edge_count > 0)
+    ;
 }
 
 bool ON_SubDVertex::IsStandard() const
@@ -2411,23 +2845,88 @@ const ON_SubDFacePtr ON_SubDEdge::FacePtr(
   //return (i < m_face_count) ? ((i < 2) ? m_face2[i] : m_facex[i - 2]) : ON_SubDFacePtr::Null;
 }
 
+unsigned ON_SubDEdge::VertexCount() const
+{
+  return 
+    (nullptr != m_vertex[0]) 
+    ? ((nullptr != m_vertex[1] && m_vertex[0] != m_vertex[1]) ? 2U : 1U)
+    : ((nullptr != m_vertex[1] ? 1U : 0U))
+    ;
+}
+
 unsigned int ON_SubDEdge::FaceCount() const
 {
   return m_face_count;
 }
 
-bool ON_SubDEdge::IsInteriorEdge() const
+bool ON_SubDEdge::HasBoundaryEdgeTopology() const
+{
+  for (;;)
+  {
+    if (1 != m_face_count)
+      break;
+    const ON_SubDFace* f = ON_SUBD_FACE_POINTER(m_face2[0].m_ptr);
+    if (nullptr == f)
+      break;
+    const ON_SubDEdgePtr feptr = f->EdgePtrFromEdge(this);
+    if (this != ON_SUBD_EDGE_POINTER(feptr.m_ptr))
+    {
+      ON_SUBD_ERROR("m_face2[0] does not reference this edge.");
+      break;
+    }
+    if (ON_SUBD_FACE_DIRECTION(m_face2[0].m_ptr) != ON_SUBD_FACE_DIRECTION(feptr.m_ptr))
+    {
+      ON_SUBD_ERROR("m_face2[0] has inconsistent direction flags.");
+      break;
+    }
+    if (nullptr == m_vertex[0] || nullptr == m_vertex[1] || m_vertex[0] == m_vertex[1])
+    {
+      ON_SUBD_ERROR("m_vertex[] has null or invalid pointers.");
+      break;
+    }
+    return true;
+  }
+  return false;
+}
+
+bool ON_SubDEdge::HasInteriorEdgeTopology(bool bRequireOppositeFaceDirections) const
 {
   for (;;)
   {
     if (2 != m_face_count)
       break;
-    if (ON_SUBD_FACE_DIRECTION(m_face2[0].m_ptr) == ON_SUBD_FACE_DIRECTION(m_face2[1].m_ptr))
+    if (bRequireOppositeFaceDirections && ON_SUBD_FACE_DIRECTION(m_face2[0].m_ptr) == ON_SUBD_FACE_DIRECTION(m_face2[1].m_ptr))
       break;
-    if (nullptr == ON_SUBD_FACE_POINTER(m_face2[0].m_ptr))
+    const ON_SubDFace* f[2] = { ON_SUBD_FACE_POINTER(m_face2[0].m_ptr), ON_SUBD_FACE_POINTER(m_face2[1].m_ptr) };
+    if ( nullptr == f[0] || nullptr == f[1] || f[0] == f[1])
       break;
-    if (nullptr == ON_SUBD_FACE_POINTER(m_face2[1].m_ptr))
+    const ON_SubDEdgePtr feptr[2] = { f[0]->EdgePtrFromEdge(this), f[1]->EdgePtrFromEdge(this) };
+    if (this != ON_SUBD_EDGE_POINTER(feptr[0].m_ptr))
+    {
+      ON_SUBD_ERROR("m_face2[0] does not reference this edge.");
       break;
+    }
+    if (ON_SUBD_FACE_DIRECTION(feptr[0].m_ptr) != ON_SUBD_FACE_DIRECTION(m_face2[0].m_ptr))
+    {
+      ON_SUBD_ERROR("m_face2[0] has inconsistent direction flags.");
+      break;
+    }
+    if (this != ON_SUBD_EDGE_POINTER(feptr[1].m_ptr))
+    {
+      ON_SUBD_ERROR("m_face2[1] does not reference this edge.");
+      break;
+    }
+    if (ON_SUBD_FACE_DIRECTION(feptr[1].m_ptr) != ON_SUBD_FACE_DIRECTION(m_face2[1].m_ptr))
+    {
+      ON_SUBD_ERROR("m_face2[1] has inconsistent direction flags.");
+      break;
+    }
+    if (nullptr == m_vertex[0] || nullptr == m_vertex[1] || m_vertex[0] == m_vertex[1])
+    {
+      ON_SUBD_ERROR("m_vertex[] has null or invalid pointers.");
+      break;
+    }
+    return true;
   }
   return false;
 }
@@ -2481,7 +2980,7 @@ unsigned int ON_SubDEdge::FaceArrayIndex(
   {
     if (f == ON_SUBD_FACE_POINTER(m_face2[0].m_ptr))
       return 0;
-    if (face_count >= 1)
+    if (face_count > 1)
     {
       if (f == ON_SUBD_FACE_POINTER(m_face2[1].m_ptr))
         return 1;
@@ -2691,6 +3190,11 @@ const ON_3dPoint ON_SubDEdge::ControlNetPoint( unsigned int i) const
   return (ON_3dPoint(m_vertex[i]->m_P));
 }
 
+const ON_Line ON_SubDEdge::ControlNetLine() const
+{
+  return ON_Line(ControlNetPoint(0), ControlNetPoint(1));
+}
+
 const ON_3dVector ON_SubDEdge::ControlNetDirection() const
 {
   if (nullptr == m_vertex[0] || nullptr == m_vertex[1])
@@ -2786,6 +3290,13 @@ void ON_SubDFace::CopyFrom(
     else
       m_edge_count = 0;
   }
+
+  // RH-56133 need to copy texture coordinate information that was recently added.
+  m_texture_coordinate_origin[0] = src->m_texture_coordinate_origin[0];
+  m_texture_coordinate_origin[1] = src->m_texture_coordinate_origin[1];
+  m_texture_coordinate_delta[0] = src->m_texture_coordinate_delta[0];
+  m_texture_coordinate_delta[1] = src->m_texture_coordinate_delta[1];
+  m_texture_coordinate_bits = src->m_texture_coordinate_bits;
 }
 
 const ON_SubDEdgePtr ON_SubDFace::EdgePtr(
@@ -3126,6 +3637,96 @@ bool ON_SubDVertex::RemoveFaceFromArray(const ON_SubDFace * f)
   return true;
 }
 
+ON_SubD::VertexTag ON_SubDVertex::SuggestedVertexTag(
+  bool bApplyInputTagBias,
+  bool bReturnBestGuessWhenInvalid
+) const
+{
+  unsigned wire_count = 0;
+  unsigned boundary_count = 0;
+  unsigned interior_count = 0;
+
+  unsigned crease_count = 0;
+
+  const unsigned edge_count = (nullptr != m_edges ? m_edge_count : 0U);
+  if ( edge_count < 2)
+    return ON_SubD::VertexTag::Corner;
+
+  for (unsigned vei = 0; vei < edge_count; ++vei)
+  {
+    const ON_SubDEdge* e = ON_SUBD_EDGE_POINTER(m_edges[vei].m_ptr);
+    if (nullptr == e)
+      continue;
+    switch(e->m_face_count)
+    {
+    case 0:
+      ++wire_count;
+      ++crease_count;
+      break;
+    case 1:
+      ++boundary_count;
+      ++crease_count;
+      break;
+    case 2:
+      ++interior_count;
+      if (ON_SubD::EdgeTag::Crease == e->m_edge_tag)
+        ++crease_count;
+      break;
+    default: // nonmanifold edge
+      return ON_SubD::VertexTag::Corner;
+      break;
+    }
+  }
+
+  if (crease_count >= 3)
+    return ON_SubD::VertexTag::Corner;
+
+  if (wire_count > 0)
+  {
+    if (2 == wire_count && 0 == boundary_count && 0 == interior_count)
+      return (bApplyInputTagBias && ON_SubD::VertexTag::Corner == m_vertex_tag) ? ON_SubD::VertexTag::Corner : ON_SubD::VertexTag::Crease;
+    return ON_SubD::VertexTag::Corner;
+  }
+
+  ON_SubD::VertexTag best_guess_tag = ON_SubD::VertexTag::Unset;
+  // crease_count >= 3 handled above
+  switch (crease_count)
+  {
+  case 0:
+    if (interior_count >= 2)
+      return ON_SubD::VertexTag::Smooth;
+    if (bReturnBestGuessWhenInvalid)
+    {
+      // can occure when there is a nullptr edge
+      best_guess_tag = ON_SubD::VertexTag::Smooth;
+    }
+    break;
+  case 1:
+    if (0 == boundary_count && interior_count >= 2)
+      return ON_SubD::VertexTag::Dart;
+    if (bReturnBestGuessWhenInvalid)
+    {
+      // topology is far from valid and dart evaluation is very delicate. 
+      // We need more boundary edges, but using corner will at least give a well defined vertex surface point.
+      best_guess_tag = ON_SubD::VertexTag::Corner;
+    }
+    break;
+  case 2:
+    if(  (0 == boundary_count && interior_count >= 2) || (2 == boundary_count) )
+      return (bApplyInputTagBias && ON_SubD::VertexTag::Corner == m_vertex_tag) ? ON_SubD::VertexTag::Corner : ON_SubD::VertexTag::Crease;
+    if (bReturnBestGuessWhenInvalid)
+    {
+      // topology is far from valid and dart evaluation is very delicate. 
+      // We need more boundary edges, but using corner will at least give a well defined vertex surface point.
+      best_guess_tag = ON_SubD::VertexTag::Corner;
+    }
+    break;
+  }
+
+  return best_guess_tag;
+}
+
+
 bool ON_SubDEdge::RemoveFaceFromArray(
   const ON_SubDFace* f
   )
@@ -3444,6 +4045,41 @@ unsigned int ON_SubDFace::VertexIndex(
   return ON_UNSET_UINT_INDEX;
 }
 
+const ON_SubDComponentPtrPair ON_SubDFace::VertexEdgePair(
+  const ON_SubDVertex* vertex
+) const
+{
+  return ON_SubDFace::VertexEdgePair(VertexIndex(vertex));
+}
+
+const ON_SubDComponentPtrPair ON_SubDFace::VertexEdgePair(
+  unsigned vertex_index
+) const
+{
+  for (;;)
+  {
+    const unsigned edge_count = m_edge_count;
+    if (edge_count < 3)
+      break;
+    if (vertex_index >= edge_count)
+      break;
+    if (edge_count > 4 && nullptr == m_edgex)
+      break;
+    const unsigned fei0 = (vertex_index + (edge_count - 1)) % edge_count;
+    const ON_SubDEdgePtr eptr[2] =
+    {
+      (fei0 < 4 ? m_edge4[fei0] : m_edgex[fei0 - 4]),
+      (vertex_index < 4 ? m_edge4[vertex_index] : m_edgex[vertex_index - 4]),
+    };
+    const ON_SubDVertex* v = eptr[0].RelativeVertex(1);
+    if (nullptr == v || v != eptr[1].RelativeVertex(0))
+      break;
+    return ON_SubDComponentPtrPair::Create( ON_SubDComponentPtr::Create(eptr[0]), ON_SubDComponentPtr::Create(eptr[1]) );
+  }
+  return ON_SubDComponentPtrPair::Null;
+}
+
+
 //////////////////////////////////////////////////////////////////////////
 //
 // ON_SubD
@@ -3493,12 +4129,14 @@ ON__UINT64 ON_SubD::ContentSerialNumber() const
   return (nullptr != subdimple) ? subdimple->ContentSerialNumber() : 0;
 }
 
-ON__UINT64 ON_SubD::ChangeContentSerialNumberForExperts()
+ON__UINT64 ON_SubD::ChangeContentSerialNumberForExperts(
+  bool bChangePreservesSymmetry
+)
 {
   if (this == &ON_SubD::Empty)
     return 0;
   ON_SubDimple* subdimple = m_subdimple_sp.get();
-  return (nullptr != subdimple) ? subdimple->ChangeContentSerialNumber() : 0;
+  return (nullptr != subdimple) ? subdimple->ChangeContentSerialNumber(bChangePreservesSymmetry) : 0;
 }
 
 ON_SubDComponentLocation ON_SubD::ToggleSubDAppearanceValue(ON_SubDComponentLocation subd_appearance)
@@ -3575,11 +4213,11 @@ static bool ON_SubDIsNotValid(bool bSilentError)
   return bSilentError ? false : ON_IsNotValid();
 }
 
-static bool EdgeVertexWeightIsSet(
-  double edge_vertex_weight
+static bool EdgeSectorCoefficientIsSet(
+  double edge_sector_coefficient
   )
 {
-  return (0.0 < edge_vertex_weight && edge_vertex_weight < 1.0);
+  return (0.0 < edge_sector_coefficient && edge_sector_coefficient < 1.0);
 }
 
 static bool EdgeSectorWeightIsValid(
@@ -3590,7 +4228,7 @@ static bool EdgeSectorWeightIsValid(
   if (0.0 <= edge_vertex_weight && edge_vertex_weight < 1.0)
     return true;
 
-  if (ON_SubDSectorType::UnsetSectorWeight == edge_vertex_weight && nullptr != edge && 0 == edge->SubdivisionLevel())
+  if (ON_SubDSectorType::UnsetSectorCoefficient == edge_vertex_weight && nullptr != edge && 0 == edge->SubdivisionLevel())
     return true;
 
   return false;
@@ -3644,11 +4282,11 @@ static bool IsValidVertexEdgeLink(
       if (!st.IsValid())
         return ON_SubDIsNotValid(bSilentError);
 
-      const double expected_vertex_weight = st.SectorWeight();
-      if (false == (expected_vertex_weight == edge->m_sector_coefficient[end_index]))
+      const double expected_sector_coefficient = st.SectorCoefficient();
+      if (false == (expected_sector_coefficient == edge->m_sector_coefficient[end_index]))
         return ON_SubDIsNotValid(bSilentError);
 
-      if (false == EdgeVertexWeightIsSet(expected_vertex_weight))
+      if (false == EdgeSectorCoefficientIsSet(expected_sector_coefficient))
         return ON_SubDIsNotValid(bSilentError);
     }
   }
@@ -3891,9 +4529,17 @@ static bool IsValidSubDVertexTag(
     if (false == bValidEdgeTags)
       break; // invalid edge tags detected in IsValidSubDEdgeTag();
 
-    if ( crease_edge_count < 2 )
+    if (0 == crease_edge_count)
     {
+      // currently, isolated vertices are not permitted - may change in the future
       return ON_SubDIsNotValid(bSilentError);
+    }
+    if (1 == crease_edge_count)
+    {
+      // must be a single wire crease edge ending at this vertex 
+      if ( 1 != vertex_edge_count || 0 != vertex->m_face_count)
+        return ON_SubDIsNotValid(bSilentError);
+
     }
     break;
 
@@ -4289,7 +4935,7 @@ bool ON_SubDimple::IsValidLevel(
     return ON_SubDIsNotValid(bSilentError);
   if (1 + v_id_range[1] - v_id_range[0] < level->m_vertex_count)
     return ON_SubDIsNotValid(bSilentError);
-  if ( v_id_range[1] > m_max_vertex_id )
+  if ( v_id_range[1] > MaximumVertexId() )
     return ON_SubDIsNotValid(bSilentError);
 
   // currently, point vertices are not permitted
@@ -4338,12 +4984,14 @@ bool ON_SubDimple::IsValidLevel(
     return ON_SubDIsNotValid(bSilentError);
   if (level->m_edge[1] != last_edge)
     return ON_SubDIsNotValid(bSilentError);
-  if ( e_id_range[1] > m_max_edge_id )
+  if ( e_id_range[1] > MaximumEdgeId() )
     return ON_SubDIsNotValid(bSilentError);
    
-  // currently, wire edges are not permitted
-  if (wire_edge_count > 0)
-    return ON_SubDIsNotValid(bSilentError);
+  // As of NOvember 12, 2019 
+  // Wire edges are permitted. THey exist in subds being edited.
+  ////// currently, wire edges are not permitted
+  ////if (wire_edge_count > 0)
+  ////  return ON_SubDIsNotValid(bSilentError);
    
   // simple face validation
   if (level_index == subd.ActiveLevelIndex())
@@ -4384,7 +5032,7 @@ bool ON_SubDimple::IsValidLevel(
     return ON_SubDIsNotValid(bSilentError);  
   if (level->m_face[1] != last_face)
     return ON_SubDIsNotValid(bSilentError);
-  if ( f_id_range[1] > m_max_face_id )
+  if ( f_id_range[1] > MaximumFaceId() )
     return ON_SubDIsNotValid(bSilentError);
 
 
@@ -4489,45 +5137,24 @@ bool ON_SubDimple::IsValid(
   ON_TextLog* text_log
   ) const
 {
-  const unsigned int level_count = m_levels.UnsignedCount();
-  if (level_count < 1)
+  if (false == m_heap.IsValid(bSilentError, text_log))
   {
-    return ON_SubDIsNotValid(bSilentError);
-  }
-  for (unsigned int level_index = 0; level_index < level_count; level_index++)
-  {
-    if (false == IsValidLevel(subd, level_index, bSilentError, text_log))
-      return false;
-  }
-  
-  if (false == m_heap.IsValid())
-  {
-    // id values are not increasing in the heap blocks.
     if (nullptr != text_log)
       text_log->Print("Component ids are not set correctly. m_heap.ResetId() will fix this but may break externally stored component references.\n");
     return ON_SubDIsNotValid(bSilentError);
   }
 
-  if (MaximumVertexId() < m_heap.MaximumVertexId())
+  const unsigned int level_count = m_levels.UnsignedCount();
+  if (level_count < 1)
   {
-    if (nullptr != text_log)
-      text_log->Print("MaximumVertexId() = %u < m_heap.MaximumVertexId() = %u\n", MaximumVertexId(), m_heap.MaximumVertexId());
     return ON_SubDIsNotValid(bSilentError);
   }
 
-  if (MaximumEdgeId() < m_heap.MaximumEdgeId())
+  for (unsigned int level_index = 0; level_index < level_count; level_index++)
   {
-    if (nullptr != text_log)
-      text_log->Print("MaximumEdgeId() = %u < m_heap.MaximumEdgeId() = %u\n", MaximumEdgeId(), m_heap.MaximumEdgeId());
-    return ON_SubDIsNotValid(bSilentError);
-  }
-
-  if (MaximumFaceId() <m_heap.MaximumFaceId())
-  {
-    if (nullptr != text_log)
-      text_log->Print("MaximumFaceId() = %u < m_heap.MaximumFaceId() = %u\n", MaximumFaceId(), m_heap.MaximumFaceId());
-    return ON_SubDIsNotValid(bSilentError);
-  }
+    if (false == IsValidLevel(subd, level_index, bSilentError, text_log))
+      return false;
+  }  
 
   return true;
 }
@@ -4595,6 +5222,8 @@ unsigned int ON_SubD::DumpTopology(
   else
     text_log.Print(L"SubD[%" PRIu64 "]: texture domain type = %ls.\n", runtime_sn, static_cast<const wchar_t*>(subd_texture_domain));
 
+
+  text_log.Print(L"Levels:\n");
 
   ON_SubDLevelIterator lit(subdimple->LevelIterator());
 
@@ -4671,7 +5300,67 @@ unsigned int ON_SubDLevel::DumpTopology(
   unsigned int edge_error_count = 0;
   unsigned int face_error_count = 0;
 
-  text_log.Print(L"SubD level %u topology: %u vertices, %u edges, ", m_level_index, m_vertex_count, m_edge_count);
+  text_log.Print(L"SubD level %u topology: %u vertices, %u edges", m_level_index, m_vertex_count, m_edge_count);
+
+
+  unsigned int wire_edge_count = 0U;
+  unsigned int boundary_edge_count = 0U;  
+  unsigned int interior_edge_count = 0U;
+  unsigned int nonmanifold_edge_count = 0U;
+  for (const ON_SubDEdge* e = m_edge[0]; nullptr != e; e = e->m_next_edge)
+  {
+    if (0 == e->m_face_count)
+      ++wire_edge_count;
+    else if (1 == e->m_face_count)
+      ++boundary_edge_count;
+    else if (2 == e->m_face_count)
+      ++interior_edge_count;
+    else if (e->m_face_count >= 3)
+      ++nonmanifold_edge_count;
+  }
+
+  if (wire_edge_count > 0U)
+  {
+    if (nonmanifold_edge_count > 0U)
+    {
+      if (boundary_edge_count > 0U && interior_edge_count > 0U)
+        text_log.Print(L" (%u boundary, %u interior, %u wire, %u nonmanifold)", boundary_edge_count, interior_edge_count, wire_edge_count, nonmanifold_edge_count);
+      else if (boundary_edge_count > 0U)
+        text_log.Print(L" (%u boundary, %u wire, %u nonmanifold)", boundary_edge_count, wire_edge_count, nonmanifold_edge_count);
+      else if (interior_edge_count > 0U)
+        text_log.Print(L" (%u interior, %u wire, %u nonmanifold)", interior_edge_count, wire_edge_count, nonmanifold_edge_count);
+      else
+        text_log.Print(L" (%u wire, %u nonmanifold)", wire_edge_count, nonmanifold_edge_count);
+    }
+    else
+    {
+      if (boundary_edge_count > 0U && interior_edge_count > 0U)
+        text_log.Print(L" (%u boundary, %u interior, %u wire)", boundary_edge_count, interior_edge_count, wire_edge_count);
+      else if (boundary_edge_count > 0U)
+        text_log.Print(L" (%u boundary, %u wire)", boundary_edge_count, wire_edge_count);
+      else if (interior_edge_count > 0U)
+        text_log.Print(L" (%u interior, %u wire)", interior_edge_count, wire_edge_count);
+      else
+        text_log.Print(L" (%u wire)", wire_edge_count);
+    }
+  }
+  else if (nonmanifold_edge_count > 0U)
+  {
+    if (boundary_edge_count > 0U && interior_edge_count > 0U)
+      text_log.Print(L" (%u boundary, %u interior, %u nonmanifold)", boundary_edge_count, interior_edge_count, nonmanifold_edge_count);
+    else if (boundary_edge_count > 0U)
+      text_log.Print(L" (%u boundary, %u nonmanifold)", boundary_edge_count, nonmanifold_edge_count);
+    else if (interior_edge_count > 0U)
+      text_log.Print(L" (%u interior, %u nonmanifold)", interior_edge_count, nonmanifold_edge_count);
+    else
+      text_log.Print(L" (%u nonmanifold)", nonmanifold_edge_count);
+  }
+  else if (boundary_edge_count > 0U && interior_edge_count > 0U)
+  {
+    text_log.Print(L" (%u boundary, %u interior)", boundary_edge_count, interior_edge_count);
+  }
+
+  text_log.Print(L", ");
 
   unsigned int ngon_count[65] = {};
   unsigned int maxN = (unsigned int)(sizeof(ngon_count) / sizeof(ngon_count[0])) - 1;
@@ -4729,6 +5418,80 @@ unsigned int ON_SubDLevel::DumpTopology(
   if (IsEmpty())
     return 0;
 
+  unsigned int damaged_vertex_count = 0;
+  unsigned int damaged_edge_count = 0;
+  unsigned int damaged_face_count = 0;
+  enum : unsigned int
+  {
+    damaged_id_list_capacity = 8
+  };
+  for (;;)
+  {
+    unsigned int damaged_vertex_id[damaged_id_list_capacity] = {};
+    unsigned int damaged_edge_id[damaged_id_list_capacity] = {};
+    unsigned int damaged_face_id[damaged_id_list_capacity] = {};
+    for (const ON_SubDVertex* v = m_vertex[0]; nullptr != v; v = v->m_next_vertex)
+    {
+      if (false == v->m_status.IsDamaged())
+        continue;
+      if (damaged_vertex_count < damaged_id_list_capacity)
+        damaged_vertex_id[damaged_vertex_count] = v->m_id;
+      ++damaged_vertex_count;
+    }
+    for (const ON_SubDEdge* e = m_edge[0]; nullptr != e; e = e->m_next_edge)
+    {
+      if (false == e->m_status.IsDamaged())
+        continue;
+      if (damaged_edge_count < damaged_id_list_capacity)
+        damaged_edge_id[damaged_edge_count] = e->m_id;
+      ++damaged_edge_count;
+    }
+    for (const ON_SubDFace* f = m_face[0]; nullptr != f; f = f->m_next_face)
+    {
+      if (false == f->m_status.IsDamaged())
+        continue;
+      if (damaged_face_count < damaged_id_list_capacity)
+        damaged_face_id[damaged_face_count] = f->m_id;
+      ++damaged_face_count;
+    }
+
+    if (0U == damaged_vertex_count && 0U == damaged_edge_count && 0U == damaged_face_count)
+      break;
+    text_log.Print("DAMAGED SubD level:\n");
+    ON_TextLogIndent indent1(text_log);
+    if (damaged_vertex_count > 0)
+    {
+      text_log.Print(L"%u DAMAGED vertices: ", damaged_vertex_count);
+      text_log.Print("v%u", damaged_vertex_id[0]);
+      for (unsigned i = 1U; i < damaged_vertex_count; ++i)
+        text_log.Print(", v%u", damaged_vertex_id[i]);
+      if (damaged_vertex_count > damaged_id_list_capacity)
+        text_log.Print(", ...");
+      text_log.PrintNewLine();
+    }
+    if (damaged_edge_count > 0)
+    {
+      text_log.Print(L"%u DAMAGED edges: ", damaged_edge_count);
+      text_log.Print("e%u", damaged_edge_id[0]);
+      for (unsigned i = 1U; i < damaged_edge_count; ++i)
+        text_log.Print(", e%u", damaged_edge_id[i]);
+      if (damaged_edge_count > damaged_id_list_capacity)
+        text_log.Print(", ...");
+      text_log.PrintNewLine();
+    }
+    if (damaged_face_count > 0)
+    {
+      text_log.Print(L"%u DAMAGED faces: ", damaged_face_count);
+      text_log.Print("f%u", damaged_face_id[0]);
+      for (unsigned i = 1U; i < damaged_face_count; ++i)
+        text_log.Print(", f%u", damaged_face_id[i]);
+      if (damaged_face_count > damaged_id_list_capacity)
+        text_log.Print(", ...");
+      text_log.PrintNewLine();
+    }
+    break;
+  }
+
   ///////////////////////////////////////////////////////////////////
   //
   // Vertex Topology
@@ -4736,10 +5499,12 @@ unsigned int ON_SubDLevel::DumpTopology(
   //   vEdges[vertex_edge_count] = { +eA, -eB, ... }
   //   vFaces[vertex_edge_count] = { fP, fQ, fR, ... }
   //
+  damaged_vertex_count = 0U;
   unsigned int vertex_count = 0;
   unsigned int vertex_dump_count = 0;
   ON_2udex skipped_vertex_id = ON_2udex::Zero;
   unsigned int max_vertex_id = 0;
+  bool bSkippedPreviousComponent = false;
   for (const ON_SubDVertex* v = m_vertex[0]; nullptr != v; v = v->m_next_vertex)
   {
     if (vertex_count >= m_vertex_count && v->SubdivisionLevel() != level_index)
@@ -4748,8 +5513,11 @@ unsigned int ON_SubDLevel::DumpTopology(
       max_vertex_id = v->m_id;
 
     vertex_count++;
+    const bool bIsDamaged = v->m_status.IsDamaged();
+    if (bIsDamaged)
+      ++damaged_vertex_count;
 
-    if (bVertexIdTest)
+    if (bVertexIdTest && (false == bIsDamaged || damaged_vertex_count > damaged_id_list_capacity))
     {
       bool bSkip = true;
       for (;;)
@@ -4780,6 +5548,7 @@ unsigned int ON_SubDLevel::DumpTopology(
           skipped_vertex_id.i = v->m_id;
         else if (v->m_id > skipped_vertex_id.j)
           skipped_vertex_id.j = v->m_id;
+        bSkippedPreviousComponent = true;
         continue;
       }
     }
@@ -4814,12 +5583,29 @@ unsigned int ON_SubDLevel::DumpTopology(
       break;
     }
 
-    text_log.Print(
-      "v%u: %ls (%g, %g, %g)\n",
-      v->m_id, 
-      static_cast<const wchar_t*>(vtag),
-      P0.x, P0.y, P0.z
-    );
+    if (bSkippedPreviousComponent)
+    {
+      text_log.Print(L"...\n");
+      bSkippedPreviousComponent = false;
+    }
+    if (bIsDamaged)
+    {
+      text_log.Print(
+        "v%u: (DAMAGED) %ls (%g, %g, %g)\n",
+        v->m_id,
+        static_cast<const wchar_t*>(vtag),
+        P0.x, P0.y, P0.z
+      );
+    }
+    else
+    {
+      text_log.Print(
+        "v%u: %ls (%g, %g, %g)\n",
+        v->m_id,
+        static_cast<const wchar_t*>(vtag),
+        P0.x, P0.y, P0.z
+      );
+    }
 
     text_log.PushIndent();
 
@@ -4916,10 +5702,14 @@ unsigned int ON_SubDLevel::DumpTopology(
   // eN (+vA, -vB)
   //   eFaces[edge_face_count] = { fP, fQ, fR, ... }
   //
+  damaged_edge_count = 0U;
+  wire_edge_count = 0U;
+  nonmanifold_edge_count = 0U;
   unsigned int edge_count = 0;
   unsigned int edge_dump_count = 0;
   ON_2udex skipped_edge_id = ON_2udex::Zero;
   unsigned int max_edge_id = 0;
+  bSkippedPreviousComponent = false;
   for (const ON_SubDEdge* e = m_edge[0]; nullptr != e; e = e->m_next_edge)
   {
     if (edge_count >= m_edge_count && e->SubdivisionLevel() != level_index)
@@ -4928,7 +5718,22 @@ unsigned int ON_SubDLevel::DumpTopology(
       max_edge_id = e->m_id;
     edge_count++;
 
-    if (bEdgeIdTest)
+    const bool bIsDamaged = e->m_status.IsDamaged();
+    if (bIsDamaged)
+      ++damaged_edge_count;
+    const bool bIsWireEdge = (0U == e->m_face_count);
+    if (bIsWireEdge)
+      ++wire_edge_count;
+    const bool bIsNonmanifoldEdge = (e->m_face_count >= 3U);
+    if (bIsNonmanifoldEdge)
+      ++nonmanifold_edge_count;
+
+    if (
+      bEdgeIdTest 
+      && (false == bIsDamaged || damaged_edge_count > damaged_id_list_capacity)
+      && (false == bIsWireEdge || wire_edge_count > damaged_id_list_capacity)
+      && (false == bIsNonmanifoldEdge || nonmanifold_edge_count > damaged_id_list_capacity)
+      )
     {
       bool bSkip = true;
       for (;;)
@@ -4959,6 +5764,7 @@ unsigned int ON_SubDLevel::DumpTopology(
           skipped_edge_id.i = e->m_id;
         else if (e->m_id > skipped_edge_id.j)
           skipped_edge_id.j = e->m_id;
+        bSkippedPreviousComponent = true;
         continue;
       }
     }
@@ -4988,11 +5794,65 @@ unsigned int ON_SubDLevel::DumpTopology(
       break;
     }
 
-    text_log.Print(
-      "e%u:  %ls (",
-      e->m_id,
-      static_cast<const wchar_t*>(etag)
-    );
+    if (bSkippedPreviousComponent)
+    {
+      text_log.Print(L"...\n");
+      bSkippedPreviousComponent = false;
+    }
+    if (bIsDamaged)
+    {
+      if (bIsWireEdge)
+      {
+        text_log.Print(
+          "e%u: (DAMAGED) %ls wire (",
+          e->m_id,
+          static_cast<const wchar_t*>(etag)
+        );
+      }
+      else if (bIsNonmanifoldEdge)
+      {
+        text_log.Print(
+          "e%u: (DAMAGED) %ls nonmanifold (",
+          e->m_id,
+          static_cast<const wchar_t*>(etag)
+        );
+      }
+      else
+      {
+        text_log.Print(
+          "e%u: (DAMAGED) %ls (",
+          e->m_id,
+          static_cast<const wchar_t*>(etag)
+        );
+      }
+    }
+    else
+    {
+      if (bIsWireEdge)
+      {
+        text_log.Print(
+          "e%u: wire %ls (",
+          e->m_id,
+          static_cast<const wchar_t*>(etag)
+        );
+      }
+      else if (bIsNonmanifoldEdge)
+      {
+        text_log.Print(
+          "e%u: nonmanifold %ls (",
+          e->m_id,
+          static_cast<const wchar_t*>(etag)
+        );
+      }
+      else
+      {
+        text_log.Print(
+          "e%u: %ls (",
+          e->m_id,
+          static_cast<const wchar_t*>(etag)
+        );
+      }
+    }
 
     prefix[0] = ON_String::Space;
     prefix[1] = error_code_point;
@@ -5013,7 +5873,7 @@ unsigned int ON_SubDLevel::DumpTopology(
       }
       if (error_code_point == prefix[1])
         edge_error_count++;
-      text_log.Print("%s%u", prefix, vid);
+      text_log.Print("%s%u", (0==evi)?(prefix+1):(prefix), vid);
     }
     text_log.Print(")\n");
 
@@ -5085,10 +5945,12 @@ unsigned int ON_SubDLevel::DumpTopology(
   //   fEdges[face_edge_count] = { +eA, -eB, +eC, ...}
   //   fVertices[face_edge_count] = { vP, vQ, vR, ... }
   //
+  damaged_face_count = 0U;
   face_count = 0;
   unsigned int face_dump_count = 0;
   ON_2udex skipped_face_id = ON_2udex::Zero;
   unsigned int max_face_id = 0;
+  bSkippedPreviousComponent = false;
   for (const ON_SubDFace* f = m_face[0]; nullptr != f; f = f->m_next_face)
   {
     if (face_count >= m_face_count && f->SubdivisionLevel() != level_index)
@@ -5097,7 +5959,11 @@ unsigned int ON_SubDLevel::DumpTopology(
       max_face_id = f->m_id;
     face_count++;
 
-    if (bFaceIdTest)
+    const bool bIsDamaged = f->m_status.IsDamaged();
+    if (bIsDamaged)
+      ++damaged_face_count;
+
+    if (bFaceIdTest && (false == bIsDamaged || damaged_face_count > damaged_id_list_capacity))
     {
       bool bSkip = true;
       for (;;)
@@ -5128,6 +5994,7 @@ unsigned int ON_SubDLevel::DumpTopology(
           skipped_face_id.i = f->m_id;
         else if (f->m_id > skipped_face_id.j)
           skipped_face_id.j = f->m_id;
+        bSkippedPreviousComponent = true;
         continue;
       }
     }
@@ -5137,10 +6004,25 @@ unsigned int ON_SubDLevel::DumpTopology(
     face_dump_count++;
     ON_TextLogIndent eindent(text_log);
 
-    text_log.Print(
-      "f%u:\n",
-      f->m_id
-    );
+    if (bSkippedPreviousComponent)
+    {
+      text_log.Print(L"...\n");
+      bSkippedPreviousComponent = false;
+    }
+    if (bIsDamaged)
+    {
+      text_log.Print(
+        "f%u (DAMAGED):\n",
+        f->m_id
+      );
+    }
+    else
+    {
+      text_log.Print(
+        "f%u:\n",
+        f->m_id
+      );
+    }
 
     text_log.PushIndent();
 
@@ -5406,7 +6288,7 @@ void ON_SubD::DestroyRuntimeCache( bool bDelete )
         level->AggregateComponentStatus().MarkAsNotCurrent();
       }
     }
-    dimple->ChangeContentSerialNumber();
+    dimple->ChangeContentSerialNumber(false);
   }
   return;
 }
@@ -5630,22 +6512,35 @@ void ON_SubD::Clear()
     subdimple->Clear();
 }
 
-void ON_SubD::ClearHigherSubdivisionLevels(
+unsigned int ON_SubD::ClearHigherSubdivisionLevels(
   unsigned int max_level_index
   )
 {
   ON_SubDimple* subdimple = SubDimple(false);
-  if ( subdimple )
-    subdimple->ClearHigherSubdivisionLevels(max_level_index);
+  return
+    (nullptr != subdimple)
+    ? subdimple->ClearHigherSubdivisionLevels(max_level_index)
+    : 0U;
 }
 
-void ON_SubD::ClearLowerSubdivisionLevels(
+unsigned int ON_SubD::ClearLowerSubdivisionLevels(
   unsigned int min_level_index
   )
 {
   ON_SubDimple* subdimple = SubDimple(false);
-  if ( subdimple )
-    subdimple->ClearLowerSubdivisionLevels(min_level_index);
+  return
+    (nullptr != subdimple)
+    ? subdimple->ClearLowerSubdivisionLevels(min_level_index)
+    : 0U;
+}
+
+unsigned ON_SubD::ClearInactiveLevels()
+{
+  ON_SubDimple* subdimple = SubDimple(false);
+  return
+    (nullptr != subdimple)
+    ? subdimple->ClearInactiveLevels()
+    : 0U;
 }
 
 void ON_SubD::Destroy()
@@ -5674,19 +6569,57 @@ class ON_SubDVertex* ON_SubD::AddVertex(
   return v;
 }
 
+ON_SubDVertex* ON_SubD::AddVertexForExperts(
+  unsigned int candidate_vertex_id,
+  ON_SubD::VertexTag vertex_tag,
+  const double* P,
+  unsigned int initial_edge_capacity,
+  unsigned int initial_face_capacity
+)
+{
+  ON_SubDimple* subdimple = SubDimple(true);
+  if (0 == subdimple)
+    return 0;
+  ON_SubDVertex* v = subdimple->AllocateVertex( candidate_vertex_id, vertex_tag, subdimple->ActiveLevelIndex(), P, initial_edge_capacity, initial_face_capacity);
+  subdimple->AddVertexToLevel(v);
+  return v;
+}
+
+
 
 class ON_SubDEdge* ON_SubDimple::AddEdge(
-  ON_SubD::EdgeTag edge_tag, 
+  ON_SubD::EdgeTag edge_tag,
   ON_SubDVertex* v0,
   double v0_sector_weight,
   ON_SubDVertex* v1,
   double v1_sector_weight
-  )
+)
 {
-  if ( false == ON_SubDSectorType::IsValidSectorWeightValue(v0_sector_weight,true) )
+  return AddEdge(
+    0U,
+    edge_tag,
+    v0,
+    v0_sector_weight,
+    v1,
+    v1_sector_weight,
+    0U
+  );
+}
+
+class ON_SubDEdge* ON_SubDimple::AddEdge(
+  unsigned int candidate_edge_id,
+  ON_SubD::EdgeTag edge_tag,
+  ON_SubDVertex* v0,
+  double v0_sector_weight,
+  ON_SubDVertex* v1,
+  double v1_sector_weight,
+  unsigned initial_face_capacity
+)
+{
+  if ( false == ON_SubDSectorType::IsValidSectorCoefficientValue(v0_sector_weight,true) )
     return ON_SUBD_RETURN_ERROR(nullptr);
 
-  if ( false == ON_SubDSectorType::IsValidSectorWeightValue(v1_sector_weight,true) )
+  if ( false == ON_SubDSectorType::IsValidSectorCoefficientValue(v1_sector_weight,true) )
     return ON_SUBD_RETURN_ERROR(nullptr);    
 
   if ( nullptr != v0 && nullptr != v1 && v0->SubdivisionLevel() != v1->SubdivisionLevel() )
@@ -5695,28 +6628,28 @@ class ON_SubDEdge* ON_SubDimple::AddEdge(
   const bool bEdgeTagSet = ON_SubD::EdgeTagIsSet(edge_tag);
 
   if ( bEdgeTagSet
-    && ON_SubDSectorType::IgnoredSectorWeight != v0_sector_weight 
-    && ON_SubDSectorType::UnsetSectorWeight != v0_sector_weight
+    && ON_SubDSectorType::IgnoredSectorCoefficient != v0_sector_weight 
+    && ON_SubDSectorType::UnsetSectorCoefficient != v0_sector_weight
     && nullptr != v0
     && ON_SubD::VertexTag::Smooth == v0->m_vertex_tag
     )
   {
     // minimizes checking when building subds because constant crease weights can be passed in
-    v0_sector_weight = ON_SubDSectorType::IgnoredSectorWeight;
+    v0_sector_weight = ON_SubDSectorType::IgnoredSectorCoefficient;
   }
 
   if ( bEdgeTagSet
-    && ON_SubDSectorType::IgnoredSectorWeight != v1_sector_weight
-    && ON_SubDSectorType::UnsetSectorWeight != v1_sector_weight
+    && ON_SubDSectorType::IgnoredSectorCoefficient != v1_sector_weight
+    && ON_SubDSectorType::UnsetSectorCoefficient != v1_sector_weight
     && nullptr != v1
     && ON_SubD::VertexTag::Smooth == v1->m_vertex_tag
     )
   {
     // minimizes checking when building subds because constant crease weights can be passed in
-    v1_sector_weight = ON_SubDSectorType::IgnoredSectorWeight;
+    v1_sector_weight = ON_SubDSectorType::IgnoredSectorCoefficient;
   }
 
-  class ON_SubDEdge* e = AllocateEdge(edge_tag);
+  class ON_SubDEdge* e = AllocateEdge(candidate_edge_id,edge_tag, 0, 0);
   if ( nullptr == e)
     return ON_SUBD_RETURN_ERROR(nullptr);
 
@@ -5747,6 +6680,11 @@ class ON_SubDEdge* ON_SubDimple::AddEdge(
 
   if ( nullptr == AddEdgeToLevel(e) )
     return ON_SUBD_RETURN_ERROR(nullptr);
+
+  if (initial_face_capacity > 2)
+  {
+    m_heap.GrowEdgeFaceArray(e, initial_face_capacity);
+  }
 
   return e;
 }
@@ -5890,9 +6828,9 @@ class ON_SubDEdge* ON_SubD::AddEdge(
   return AddEdgeWithSectorCoefficients(
     edge_tag,
     v0,
-    ON_SubDSectorType::UnsetSectorWeight,
+    ON_SubDSectorType::UnsetSectorCoefficient,
     v1,
-    ON_SubDSectorType::UnsetSectorWeight
+    ON_SubDSectorType::UnsetSectorCoefficient
     );
 }
 
@@ -5910,17 +6848,34 @@ ON_SubDEdge* ON_SubD::AddEdgeWithSectorCoefficients(
   return ON_SUBD_RETURN_ERROR(nullptr);
 }
 
+class ON_SubDEdge* ON_SubD::AddEdgeForExperts(
+  unsigned int candidate_edge_id,
+  ON_SubD::EdgeTag edge_tag,
+  class ON_SubDVertex* v0,
+  double v0_sector_coefficient,
+  class ON_SubDVertex* v1,
+  double v1_sector_coefficient,
+  unsigned int initial_face_capacity
+)
+{
+  ON_SubDimple* subdimple = SubDimple(true);
+  if (nullptr != subdimple)
+    return subdimple->AddEdge( candidate_edge_id, edge_tag, v0, v0_sector_coefficient, v1, v1_sector_coefficient, initial_face_capacity);
+  return ON_SUBD_RETURN_ERROR(nullptr);
+}
+
+
 
 class ON_SubDFace* ON_SubDimple::AddFace(
   unsigned int edge_count,
   const ON_SubDEdgePtr* edge
 )
 {
-  return AddFace(nullptr, edge_count, edge);
+  return AddFace( 0U, edge_count, edge);
 }
 
 class ON_SubDFace* ON_SubDimple::AddFace(
-  const ON_SubDFace* candidate_face,
+  unsigned int candidate_face_id,
   unsigned int edge_count,
   const ON_SubDEdgePtr* edge
   )
@@ -5947,7 +6902,7 @@ class ON_SubDFace* ON_SubDimple::AddFace(
     }
   }
 
-  ON_SubDFace* f = AllocateFace(candidate_face);
+  ON_SubDFace* f = AllocateFace( candidate_face_id, 0, 0);
   if ( nullptr == f)
     return ON_SUBD_RETURN_ERROR(nullptr);
   f->SetSubdivisionLevel(f_level);
@@ -6045,14 +7000,14 @@ bool ON_SubDEdge::UpdateEdgeSectorCoefficientsForExperts(bool bUnsetEdgeSectorCo
       )
       return false;
   }
-  m_sector_coefficient[0] = ON_SubDSectorType::IgnoredSectorWeight;
-  m_sector_coefficient[1] = ON_SubDSectorType::IgnoredSectorWeight;
+  m_sector_coefficient[0] = ON_SubDSectorType::IgnoredSectorCoefficient;
+  m_sector_coefficient[1] = ON_SubDSectorType::IgnoredSectorCoefficient;
   if (ON_SubD::EdgeTag::Smooth == m_edge_tag || ON_SubD::EdgeTag::SmoothX == m_edge_tag)
   {
     const unsigned int tagged_end_index = TaggedEndIndex();
     if (tagged_end_index < 2)
     {
-      m_sector_coefficient[tagged_end_index] = ON_SubDSectorType::Create( this, tagged_end_index).SectorWeight();
+      m_sector_coefficient[tagged_end_index] = ON_SubDSectorType::Create( this, tagged_end_index).SectorCoefficient();
     }
     else if (2 == tagged_end_index)
     {
@@ -6063,8 +7018,8 @@ bool ON_SubDEdge::UpdateEdgeSectorCoefficientsForExperts(bool bUnsetEdgeSectorCo
        m_edge_tag = ON_SubD::EdgeTag::Crease;
       else if (ON_SubD::EdgeTag::SmoothX == m_edge_tag)
       {
-        m_sector_coefficient[0] = ON_SubDSectorType::Create( this, 0).SectorWeight();
-        m_sector_coefficient[1] = ON_SubDSectorType::Create( this, 1).SectorWeight();
+        m_sector_coefficient[0] = ON_SubDSectorType::Create( this, 0).SectorCoefficient();
+        m_sector_coefficient[1] = ON_SubDSectorType::Create( this, 1).SectorCoefficient();
       }
     }
   }
@@ -6179,7 +7134,7 @@ class ON_SubDFace* ON_SubD::AddFace(
   }
 
   ON_SubDFace* face
-    = (eptr[edge_count - 1].IsNull() && (eptr[0].RelativeVertex(0) != eptr[edge_count - 1].RelativeVertex(1)))
+    = (eptr[edge_count - 1].IsNotNull() && eptr[0].RelativeVertex(0) == eptr[edge_count - 1].RelativeVertex(1))
     ? AddFace(eptr, edge_count)
     : nullptr;
   onfree(eptr);
@@ -6200,14 +7155,14 @@ class ON_SubDFace* ON_SubD::AddFace(
 }
 
 
-class ON_SubDFace* ON_SubD::AddFace(
-  const ON_SubDFace* candidate_face,
+class ON_SubDFace* ON_SubD::AddFaceForExperts(
+  unsigned int candiate_face_id,
   const ON_SubDEdgePtr* edge,
   unsigned int edge_count
   )
 {
   ON_SubDimple* subdimple = SubDimple(true);
-  return (nullptr != subdimple) ? subdimple->AddFace(candidate_face, edge_count, edge) : nullptr;
+  return (nullptr != subdimple) ? subdimple->AddFace( candiate_face_id, edge_count, edge) : nullptr;
 }
 
 bool ON_SubD::AddFaceEdgeConnection(
@@ -6390,13 +7345,22 @@ bool ON_SubD::RemoveFaceConnections(
 
 static bool ON_SubDFace_GetSubdivisionPointError(
   const class ON_SubDFace* face,
-  double face_point[3],
+  double subdivision_point[3],
   bool bDamagedState
   )
 {
-  if (nullptr == face || nullptr == face_point)
-    return ON_SUBD_RETURN_ERROR(false); // caller passed a null pointer - edge is not necessarily damaged
+  if (nullptr == subdivision_point)
+    return ON_SUBD_RETURN_ERROR(false); // caller passed a null pointer - face is not necessarily damaged
 
+  // make sure returned point is not used by a caller who doesn't bother to check return codes.
+  subdivision_point[0] = ON_DBL_QNAN;
+  subdivision_point[1] = ON_DBL_QNAN;
+  subdivision_point[2] = ON_DBL_QNAN;
+
+  if (nullptr == face) 
+    return ON_SUBD_RETURN_ERROR(false);
+
+  // face is damaged in some way - mark it
   face->m_status.SetDamagedState(bDamagedState);
 
   return ON_SUBD_RETURN_ERROR(false);
@@ -6452,12 +7416,16 @@ bool ON_SubDFace::EvaluateCatmullClarkSubdivisionPoint(double subdivision_point[
   // special treatment will run noticably faster.
   e_ptr = edge_ptr[0].m_ptr;
   e = ON_SUBD_EDGE_POINTER(e_ptr);
+  if ( nullptr == e || nullptr == e->m_vertex[0] || nullptr == e->m_vertex[1] )
+    return ON_SubDFace_GetSubdivisionPointError(this, subdivision_point, true);
   edir = ON_SUBD_EDGE_DIRECTION(e_ptr);
   vertexP[0] = e->m_vertex[edir]->m_P;
   vertexP[1] = e->m_vertex[1 - edir]->m_P;
 
   e_ptr = edge_ptr[2].m_ptr;
   e = ON_SUBD_EDGE_POINTER(e_ptr);
+  if (nullptr == e || nullptr == e->m_vertex[0] || nullptr == e->m_vertex[1])
+    return ON_SubDFace_GetSubdivisionPointError(this, subdivision_point, true);
   edir = ON_SUBD_EDGE_DIRECTION(e_ptr);
   vertexP[2] = e->m_vertex[edir]->m_P;
   vertexP[3] = e->m_vertex[1 - edir]->m_P;
@@ -6515,6 +7483,8 @@ bool ON_SubDFace::EvaluateCatmullClarkSubdivisionPoint(double subdivision_point[
   {
     e_ptr = edge_ptr[i].m_ptr;
     e = ON_SUBD_EDGE_POINTER(e_ptr);
+    if (nullptr == e || nullptr == e->m_vertex[0] || nullptr == e->m_vertex[1])
+      return ON_SubDFace_GetSubdivisionPointError(this, subdivision_point, true);
     edir = ON_SUBD_EDGE_DIRECTION(e_ptr);
     vertexP[0] = e->m_vertex[edir]->m_P;
     vertexP[1] = e->m_vertex[1 - edir]->m_P;
@@ -6533,6 +7503,8 @@ bool ON_SubDFace::EvaluateCatmullClarkSubdivisionPoint(double subdivision_point[
     // odd number of edges and vertices
     e_ptr = edge_ptr[count - 1].m_ptr;
     e = ON_SUBD_EDGE_POINTER(e_ptr);
+    if (nullptr == e || nullptr == e->m_vertex[0] || nullptr == e->m_vertex[1])
+      return ON_SubDFace_GetSubdivisionPointError(this, subdivision_point, true);
     edir = ON_SUBD_EDGE_DIRECTION(e_ptr);
     vertexP[0] = e->m_vertex[edir]->m_P;
     faceP[0] += vertexP[0][0];
@@ -6672,6 +7644,24 @@ bool ON_SubDComponentBase::SetMark(
   return m_status.SetRuntimeMark(bMark);
 }
 
+
+ON__UINT8 ON_SubDComponentBase::MarkBits() const
+{
+  return m_status.MarkBits();
+}
+
+ON__UINT8 ON_SubDComponentBase::SetMarkBits(
+  ON__UINT8 mark_bits
+) const
+{
+  return m_status.SetMarkBits(mark_bits);
+}
+
+ON__UINT8 ON_SubDComponentBase::ClearMarkBits() const
+{
+  return m_status.SetMarkBits(0);
+}
+
 bool ON_SubDComponentPtr::IsActive() const
 {
   const ON_SubDComponentBase* c = this->ComponentBase();
@@ -6799,13 +7789,16 @@ static void Internal_ClearFaceNeighborhoodCache(const ON_SubDFace* face)
   // Clear cached values for every component associated with this face.
   face->ClearSavedSubdivisionPoints();
   const ON_SubDEdgePtr* eptr = face->m_edge4;
-  for (unsigned int efi = 0; efi < face->m_edge_count; efi++)
+  for (unsigned int efi = 0; efi < face->m_edge_count; ++efi, ++eptr)
   {
     if (4 == efi)
     {
       eptr = face->m_edgex;
-      if ( nullptr == eptr)
+      if ( nullptr == eptr || face->m_edgex_capacity < face->m_edge_count - 4)
+      {
+        ON_SUBD_ERROR("Invalid face edge count or edgex information.");
         break;
+      }
     }
     const ON_SubDEdge* edge = ON_SUBD_EDGE_POINTER(eptr->m_ptr);
     if (nullptr != edge)
@@ -6819,7 +7812,6 @@ static void Internal_ClearFaceNeighborhoodCache(const ON_SubDFace* face)
           vertex->ClearSavedSubdivisionPoints();
       }
     }
-    eptr++;
   }
 }
 
@@ -6831,11 +7823,13 @@ void ON_SubDVertex::VertexModifiedNofification() const
     for (unsigned short vei = 0; vei < m_edge_count; vei++)
     {
       const ON_SubDEdge* edge = ON_SUBD_EDGE_POINTER(m_edges[vei].m_ptr);
-      if (nullptr != edge)
-      {
-        edge->ClearSavedSubdivisionPoints();
-        edge->UnsetSectorCoefficientsForExperts();
-      }
+      if (nullptr == edge)
+        continue;
+      edge->ClearSavedSubdivisionPoints();
+      edge->UnsetSectorCoefficientsForExperts();
+      const ON_SubDVertex* v1 = edge->m_vertex[1-ON_SUBD_EDGE_DIRECTION(m_edges[vei].m_ptr)];
+      if (nullptr != v1)
+        v1->ClearSavedSubdivisionPoints();
     }
 
     // This is needed to clear cached information in the Catmull-Clark 
@@ -6856,7 +7850,6 @@ void ON_SubDEdge::EdgeModifiedNofification() const
   UnsetSectorCoefficientsForExperts();
   for (unsigned int evi = 0; evi < 2; evi++)
   {
-    const_cast<ON_SubDEdge*>(this)->m_sector_coefficient[evi] = ON_SubDSectorType::UnsetSectorWeight;
     if (nullptr != m_vertex[evi])
       m_vertex[evi]->VertexModifiedNofification();
   }
@@ -6882,8 +7875,8 @@ void ON_SubDEdge::EdgeModifiedNofification() const
 
 void ON_SubDEdge::UnsetSectorCoefficientsForExperts() const
 {
-  const_cast<ON_SubDEdge*>(this)->m_sector_coefficient[0] = ON_SubDSectorType::UnsetSectorWeight;
-  const_cast<ON_SubDEdge*>(this)->m_sector_coefficient[1] = ON_SubDSectorType::UnsetSectorWeight;
+  const_cast<ON_SubDEdge*>(this)->m_sector_coefficient[0] = ON_SubDSectorType::UnsetSectorCoefficient;
+  const_cast<ON_SubDEdge*>(this)->m_sector_coefficient[1] = ON_SubDSectorType::UnsetSectorCoefficient;
 }
 
 void ON_SubDVertex::UnsetSectorCoefficientsForExperts(unsigned int relative_edge_end_dex) const
@@ -6899,11 +7892,11 @@ void ON_SubDVertex::UnsetSectorCoefficientsForExperts(unsigned int relative_edge
       ? ((0 == edir ? false : true) == (0 == relative_edge_end_dex ? false : true) ? 0U : 1U)
       : 2U;
     if ( evi < 2)
-      e->m_sector_coefficient[evi] = ON_SubDSectorType::UnsetSectorWeight;
+      e->m_sector_coefficient[evi] = ON_SubDSectorType::UnsetSectorCoefficient;
     else
     {
-      e->m_sector_coefficient[0] = ON_SubDSectorType::UnsetSectorWeight;
-      e->m_sector_coefficient[1] = ON_SubDSectorType::UnsetSectorWeight;
+      e->m_sector_coefficient[0] = ON_SubDSectorType::UnsetSectorCoefficient;
+      e->m_sector_coefficient[1] = ON_SubDSectorType::UnsetSectorCoefficient;
     }
   }
 }
@@ -6949,7 +7942,6 @@ void ON_SubDComponentBase::Internal_ClearSubdivisionPointAndSurfacePointFlags() 
 {
   ON_SUBD_CACHE_CLEAR_POINT_FLAG(m_saved_points_flags);
   ON_SUBD_CACHE_CLEAR_LIMITLOC_FLAG(m_saved_points_flags);
-  ON_SUBD_CACHE_CLEAR_CTRLNETFRAG_FLAG(m_saved_points_flags);
 }
 
 bool ON_SubDComponentBase::Internal_SubdivisionPointFlag() const
@@ -6967,20 +7959,9 @@ bool ON_SubDComponentBase::Internal_SurfacePointFlag() const
   return (0 != ON_SUBD_CACHE_LIMITLOC_FLAG(m_saved_points_flags));
 }
 
-bool ON_SubDComponentBase::Internal_ControlNetFragmentFlag() const
-{
-  return (0 != ON_SUBD_CACHE_CTRLNETFRAG_FLAG(m_saved_points_flags));
-}
-
 void ON_SubDComponentBase::Internal_ClearSurfacePointFlag() const
 {
   ON_SUBD_CACHE_CLEAR_LIMITLOC_FLAG(m_saved_points_flags);
-  ON_SUBD_CACHE_CLEAR_CTRLNETFRAG_FLAG(m_saved_points_flags);
-}
-
-void ON_SubDComponentBase::Internal_ClearControlNetFragmentFlag() const
-{
-  ON_SUBD_CACHE_CLEAR_CTRLNETFRAG_FLAG(m_saved_points_flags);
 }
 
 bool ON_SubDComponentBase::SavedSubdivisionPointIsSet() const
@@ -7074,12 +8055,30 @@ void ON_SubDComponentBase::Internal_SetSavedSurfacePointFlag(bool bSavedSurfaceP
     Internal_ClearSurfacePointFlag();
 }
 
-void ON_SubDComponentBase::Internal_SetSavedControlNetFragmentFlag(bool bSavedControlNetFragmentFlag) const
+
+void ON_SubDComponentBase::Internal_SetModified1Flag() const
 {
-  if (bSavedControlNetFragmentFlag)
-    m_saved_points_flags |= ON_SUBD_CACHE_CTRLNETFRAG_FLAG_BIT;
-  else
-    Internal_ClearSurfacePointFlag();
+  m_saved_points_flags |= ON_SubDComponentBase::ModifiedFlags::Modified1Bit;
+}
+
+void ON_SubDComponentBase::Internal_SetModified2Flag() const
+{
+  m_saved_points_flags |= ON_SubDComponentBase::ModifiedFlags::Modified1Bit;
+}
+
+void ON_SubDComponentBase::Internal_ClearModifiedFlags() const
+{
+  m_saved_points_flags &= ~ON_SubDComponentBase::ModifiedFlags::ModifiedFlagsMask;
+}
+
+bool ON_SubDComponentBase::Internal_Modified1IsSet() const
+{
+  return (0 != (m_saved_points_flags & ON_SubDComponentBase::ModifiedFlags::Modified1Bit));
+}
+
+bool ON_SubDComponentBase::Internal_Modified1or2IsSet() const
+{
+  return (0 != (m_saved_points_flags & ON_SubDComponentBase::ModifiedFlags::ModifiedFlagsMask));
 }
 
 bool ON_SubDFace::ReverseEdgeList()
@@ -7335,6 +8334,7 @@ bool ON_SubDEdge::EvaluateCatmullClarkSubdivisionPoint(double subdivision_point[
   const bool bApplyDisplacement = GetSubdivisionDisplacement(displacementV);
 
   const double* edgeP[2] = { edge_vertex[0]->m_P, edge_vertex[1]->m_P };
+  const double edgePsum[3] = { edgeP[0][0] + edgeP[1][0], edgeP[0][1] + edgeP[1][1], edgeP[0][2] + edgeP[1][2] };
 
   if ( IsSmooth() )
   {
@@ -7361,7 +8361,7 @@ bool ON_SubDEdge::EvaluateCatmullClarkSubdivisionPoint(double subdivision_point[
       = (ON_SubD::VertexTag::Smooth != edge_vertex[0]->m_vertex_tag)
       ? 0
       : ((ON_SubD::VertexTag::Smooth != edge_vertex[1]->m_vertex_tag) ? 1 : ON_UNSET_UINT_INDEX);
-    double edgePsum[3];
+    double EP[3];
     if (
       ON_UNSET_UINT_INDEX == tagged_end
       || 0.5 == m_sector_coefficient[tagged_end]
@@ -7369,9 +8369,9 @@ bool ON_SubDEdge::EvaluateCatmullClarkSubdivisionPoint(double subdivision_point[
       )
     {
       // ignore edge weights
-      edgePsum[0] = 0.375*(edgeP[0][0] + edgeP[1][0]);
-      edgePsum[1] = 0.375*(edgeP[0][1] + edgeP[1][1]);
-      edgePsum[2] = 0.375*(edgeP[0][2] + edgeP[1][2]);
+      EP[0] = 0.375*edgePsum[0];
+      EP[1] = 0.375*edgePsum[1];
+      EP[2] = 0.375*edgePsum[2];
     }
     else if (ON_SubD::VertexTag::Smooth == edge_vertex[1 - tagged_end]->m_vertex_tag
       && m_sector_coefficient[tagged_end] > 0.0
@@ -7381,9 +8381,9 @@ bool ON_SubDEdge::EvaluateCatmullClarkSubdivisionPoint(double subdivision_point[
       double w[2];
       w[tagged_end] = m_sector_coefficient[tagged_end];
       w[1 - tagged_end] = 1.0 - w[tagged_end];
-      edgePsum[0] = 0.75*(w[0] * edgeP[0][0] + w[1] * edgeP[1][0]);
-      edgePsum[1] = 0.75*(w[0] * edgeP[0][1] + w[1] * edgeP[1][1]);
-      edgePsum[2] = 0.75*(w[0] * edgeP[0][2] + w[1] * edgeP[1][2]);
+      EP[0] = 0.75*(w[0] * edgeP[0][0] + w[1] * edgeP[1][0]);
+      EP[1] = 0.75*(w[0] * edgeP[0][1] + w[1] * edgeP[1][1]);
+      EP[2] = 0.75*(w[0] * edgeP[0][2] + w[1] * edgeP[1][2]);
     }
     else
     {
@@ -7397,9 +8397,9 @@ bool ON_SubDEdge::EvaluateCatmullClarkSubdivisionPoint(double subdivision_point[
     if (4 == face_edge_count[0] && 4 == face_edge_count[1])
     {
       // common case when both neighboring faces are quads
-      subdivision_point[0] = edgePsum[0] + 0.0625*(facePsum[0][0] + facePsum[1][0]);
-      subdivision_point[1] = edgePsum[1] + 0.0625*(facePsum[0][1] + facePsum[1][1]);
-      subdivision_point[2] = edgePsum[2] + 0.0625*(facePsum[0][2] + facePsum[1][2]);
+      subdivision_point[0] = EP[0] + 0.0625*(facePsum[0][0] + facePsum[1][0]);
+      subdivision_point[1] = EP[1] + 0.0625*(facePsum[0][1] + facePsum[1][1]);
+      subdivision_point[2] = EP[2] + 0.0625*(facePsum[0][2] + facePsum[1][2]);
 
       if (bApplyDisplacement)
       {
@@ -7414,9 +8414,14 @@ bool ON_SubDEdge::EvaluateCatmullClarkSubdivisionPoint(double subdivision_point[
     if (3 == face_edge_count[0] && 3 == face_edge_count[1])
     {
       // common case when both neighboring faces are triangles
-      subdivision_point[0] = edgePsum[0] + 0.125*(facePsum[0][0] + facePsum[1][0]);
-      subdivision_point[1] = edgePsum[1] + 0.125*(facePsum[0][1] + facePsum[1][1]);
-      subdivision_point[2] = edgePsum[2] + 0.125*(facePsum[0][2] + facePsum[1][2]);
+
+      //// bug in evaluation prior to Nov 11, 2019
+      ////subdivision_point[0] = EP[0] + 0.125*(facePsum[0][0] + facePsum[1][0]);
+      ////subdivision_point[1] = EP[1] + 0.125*(facePsum[0][1] + facePsum[1][1]);
+      ////subdivision_point[2] = EP[2] + 0.125*(facePsum[0][2] + facePsum[1][2]);
+      subdivision_point[0] = EP[0] + (0.5*edgePsum[0] + facePsum[0][0] + facePsum[1][0]) / 12.0;
+      subdivision_point[1] = EP[1] + (0.5*edgePsum[1] + facePsum[0][1] + facePsum[1][1]) / 12.0;
+      subdivision_point[2] = EP[2] + (0.5*edgePsum[2] + facePsum[0][2] + facePsum[1][2]) / 12.0;
 
       if (bApplyDisplacement)
       {
@@ -7429,11 +8434,19 @@ bool ON_SubDEdge::EvaluateCatmullClarkSubdivisionPoint(double subdivision_point[
     }
 
     // general formula works for all cases including face_edge_count[0] != face_count[2]
-    const double f0 = 0.125 / ((double)(face_edge_count[0]-2));
-    const double f1 = 0.125 / ((double)(face_edge_count[1]-2));
-    subdivision_point[0] = edgePsum[0] + f0 * facePsum[0][0] + f1 * facePsum[1][0];
-    subdivision_point[1] = edgePsum[1] + f0 * facePsum[0][1] + f1 * facePsum[1][1];
-    subdivision_point[2] = edgePsum[2] + f0 * facePsum[0][2] + f1 * facePsum[1][2];
+      //// bug in evaluation prior to Nov 11, 2019
+    ////const double f0 = 0.125 / ((double)(face_edge_count[0] - 2));
+    ////const double f1 = 0.125 / ((double)(face_edge_count[1] - 2));
+    ////subdivision_point[0] = EP[0] + f0 * facePsum[0][0] + f1 * facePsum[1][0];
+    ////subdivision_point[1] = EP[1] + f0 * facePsum[0][1] + f1 * facePsum[1][1];
+    ////subdivision_point[2] = EP[2] + f0 * facePsum[0][2] + f1 * facePsum[1][2];
+
+    const double f0 = (double)(face_edge_count[0] * 4U);
+    const double f1 = (double)(face_edge_count[1] * 4U);
+    const double x = 1.0 / f0 + 1.0 / f1 - 0.125;
+    subdivision_point[0] = EP[0] + x * edgePsum[0] + facePsum[0][0] / f0 + facePsum[1][0] / f1;
+    subdivision_point[1] = EP[1] + x * edgePsum[1] + facePsum[0][1] / f0 + facePsum[1][1] / f1;
+    subdivision_point[2] = EP[2] + x * edgePsum[2] + facePsum[0][2] / f0 + facePsum[1][2] / f1;
 
     if (bApplyDisplacement)
     {
@@ -7447,9 +8460,9 @@ bool ON_SubDEdge::EvaluateCatmullClarkSubdivisionPoint(double subdivision_point[
 
   if ( IsCrease() )
   {
-    subdivision_point[0] = 0.5*(edgeP[0][0] + edgeP[1][0]);
-    subdivision_point[1] = 0.5*(edgeP[0][1] + edgeP[1][1]);
-    subdivision_point[2] = 0.5*(edgeP[0][2] + edgeP[1][2]);
+    subdivision_point[0] = 0.5*edgePsum[0];
+    subdivision_point[1] = 0.5*edgePsum[1];
+    subdivision_point[2] = 0.5*edgePsum[2];
 
     if (bApplyDisplacement)
     {
@@ -7676,22 +8689,22 @@ bool ON_SubDSectorSurfacePoint::IsSet(
       return false;
   }
 
-  if (false == bUndefinedNormalIsPossible)
+  p = m_limitT1;
+  p1 = p + 6;
+  while (p < p1)
   {
-    p = m_limitT1;
-    p1 = p + 6;
-    while (p < p1)
+    const double* p2 = p + 3;
+    y = 0.0;
+    while (p < p2)
     {
-      const double* p2 = p + 3;
-      y = 0.0;
-      while (p < p2)
-      {
-        x = *p++;
-        if (ON_UNSET_VALUE == x || !(x == x))
-          return false;
-        if (0.0 != x)
-          y = x;
-      }
+      x = *p++;
+      if (ON_UNSET_VALUE == x || !(x == x))
+        return false;
+      if (0.0 != x)
+        y = x;
+    }
+    if (false == bUndefinedNormalIsPossible)
+    {
       if (!(y != 0.0))
         return false;
     }
@@ -7706,8 +8719,11 @@ bool ON_SubDSectorSurfacePoint::IsSet(
         return false;
       y += x * x;
     }
-    if (!(fabs(y - 1.0) <= 1e-4))
-      return false;
+    if (false == bUndefinedNormalIsPossible)
+    {
+      if (!(fabs(y - 1.0) <= 1e-4))
+        return false;
+    }
   }
 
   return true;
@@ -8341,6 +9357,10 @@ bool ON_SubDimple::LocalSubdivide(
   // Get face subdivision points
   ON_SimpleArray<ON_SubDFace*> faces(face_count);
   ON_SimpleArray<ON_3dPoint> face_points(face_count);
+
+  // this subd is being modifed.
+  ChangeContentSerialNumber(false);
+
   for (const ON_SubDFace* f0 = level0.m_face[0]; nullptr != f0; f0 = f0->m_next_face)
   {
     if (false == f0->m_status.RuntimeMark())
@@ -8413,8 +9433,8 @@ bool ON_SubDimple::LocalSubdivide(
     }
 
     // save face status and candidate_face
+    unsigned int candidate_face_id = f->m_id;
     const ON_ComponentStatus fstatus = f->m_status;
-    const ON_SubDFace* candidate_face = f;
 
     for (unsigned fei = 0; fei < e_count; ++fei)
     {
@@ -8455,7 +9475,7 @@ bool ON_SubDimple::LocalSubdivide(
     radial_edges.Reserve(e_count /2);
     for (unsigned fei = 0; fei < e_count; fei += 2)
     {
-      ON_SubDEdge* r = AddEdge(ON_SubD::EdgeTag::Smooth, center, ON_SubDSectorType::UnsetSectorWeight, const_cast<ON_SubDVertex*>(eptrs[fei].RelativeVertex(1)), ON_SubDSectorType::UnsetSectorWeight);
+      ON_SubDEdge* r = AddEdge(ON_SubD::EdgeTag::Smooth, center, ON_SubDSectorType::UnsetSectorCoefficient, const_cast<ON_SubDVertex*>(eptrs[fei].RelativeVertex(1)), ON_SubDSectorType::UnsetSectorCoefficient);
       radial_edges.Append(r);
     }
 
@@ -8470,8 +9490,8 @@ bool ON_SubDimple::LocalSubdivide(
         eptrs[fei],
         ON_SubDEdgePtr::Create(r[1],1) 
       };
-      ON_SubDFace* q = AddFace(candidate_face, 4, qbdry);
-      candidate_face = nullptr;
+      ON_SubDFace* q = AddFace(candidate_face_id, 4, qbdry);
+      candidate_face_id = 0;
       q->m_status = fstatus;
     }
 
@@ -8482,6 +9502,9 @@ bool ON_SubDimple::LocalSubdivide(
   level0.ClearEvaluationCache();
   level0.ClearEdgeFlags();
 
+  if (nullptr != m_active_level)
+    m_active_level->UpdateAllTagsAndSectorCoefficients(true);
+  
   return true; 
 }
 
@@ -8510,6 +9533,10 @@ unsigned int ON_SubDimple::GlobalSubdivide()
 
   double P[3];
   ON_SubDVertex* v;
+
+  // If the object is currently symmetric, a global subdivision will not break symmetry
+  const bool bChangePreservesSymmetry = true;
+  this->ChangeContentSerialNumber(bChangePreservesSymmetry);
 
   // Add face points
   for (const ON_SubDFace* f0 = level0.m_face[0]; nullptr != f0; f0 = f0->m_next_face)
@@ -8645,7 +9672,7 @@ unsigned int ON_SubDimple::Internal_GlobalQuadSubdivideFace(
 
   unsigned int f1_count = 0;
 
-  const double w_2facesector = ON_SubDSectorType::CreaseSectorWeight(2);
+  const double w_2facesector = ON_SubDSectorType::CreaseSectorCoefficient(2);
 
   for (unsigned int i = 0; i < f0_edge_count; i++)
   {
@@ -8752,7 +9779,6 @@ bool ON_SubD::LocalSubdivide(
     ptr_list.Append(f);
   }
   const bool rc = LocalSubdivide(ptr_list);
-  UpdateAllTagsAndSectorCoefficients(true);
   return rc;
 }
 
@@ -8808,12 +9834,12 @@ bool ON_SubDimple::GlobalSubdivide(
   return true;
 }
 
-ON_SubDEdgePtr ON_SubDimple::MergeEdges(
+ON_SubDEdgePtr ON_SubDimple::MergeConsecutiveEdges(
   ON_SubDEdgePtr eptr0,
   ON_SubDEdgePtr eptr1
   )
 {
-  if ( false == ON_SubD::EdgesCanBeMerged(eptr0,eptr1) )
+  if ( false == ON_SubD::EdgesAreConsecutive(eptr0,eptr1) )
     return ON_SUBD_RETURN_ERROR(ON_SubDEdgePtr::Null);
 
   ON_SubDEdge* e[2] = { ON_SUBD_EDGE_POINTER(eptr0.m_ptr), ON_SUBD_EDGE_POINTER(eptr1.m_ptr) };
@@ -8887,19 +9913,19 @@ ON_SubDEdgePtr ON_SubDimple::MergeEdges(
       ? ON_SubD::EdgeTag::SmoothX
       : ON_SubD::EdgeTag::Smooth;
     if ( false == bTagged[0])
-      e[0]->m_sector_coefficient[0] = ON_SubDSectorType::IgnoredSectorWeight;
+      e[0]->m_sector_coefficient[0] = ON_SubDSectorType::IgnoredSectorCoefficient;
     else if (!(e[0]->m_sector_coefficient[0] > 0.0 && e[0]->m_sector_coefficient[0] < 1.0))
-      e[0]->m_sector_coefficient[0] = ON_SubDSectorType::UnsetSectorWeight;
+      e[0]->m_sector_coefficient[0] = ON_SubDSectorType::UnsetSectorCoefficient;
     if ( false == bTagged[1])
-      e[0]->m_sector_coefficient[1] = ON_SubDSectorType::IgnoredSectorWeight;
+      e[0]->m_sector_coefficient[1] = ON_SubDSectorType::IgnoredSectorCoefficient;
     else if (!(e[0]->m_sector_coefficient[1] > 0.0 && e[0]->m_sector_coefficient[1] < 1.0))
-      e[0]->m_sector_coefficient[1] = ON_SubDSectorType::UnsetSectorWeight;
+      e[0]->m_sector_coefficient[1] = ON_SubDSectorType::UnsetSectorCoefficient;
   }
   else
   {
     e[0]->m_edge_tag = ON_SubD::EdgeTag::Crease;
-    e[0]->m_sector_coefficient[0] = ON_SubDSectorType::IgnoredSectorWeight;
-    e[0]->m_sector_coefficient[1] = ON_SubDSectorType::IgnoredSectorWeight;
+    e[0]->m_sector_coefficient[0] = ON_SubDSectorType::IgnoredSectorCoefficient;
+    e[0]->m_sector_coefficient[1] = ON_SubDSectorType::IgnoredSectorCoefficient;
   }
 
   ReturnEdge(e[1]);
@@ -8907,16 +9933,16 @@ ON_SubDEdgePtr ON_SubDimple::MergeEdges(
   return eptr0;
 }
 
-ON_SubDEdgePtr ON_SubD::MergeEdges(
+ON_SubDEdgePtr ON_SubD::MergeConsecutiveEdges(
   ON_SubDEdgePtr eptr0,
   ON_SubDEdgePtr eptr1
   )
 {
   ON_SubDimple* subdimple = SubDimple(false);
-  return (nullptr != subdimple) ? subdimple->MergeEdges(eptr0, eptr1) : ON_SubDEdgePtr::Null;
+  return (nullptr != subdimple) ? subdimple->MergeConsecutiveEdges(eptr0, eptr1) : ON_SubDEdgePtr::Null;
 }
 
-static bool EdgesAreMergableTest(
+static bool Internal_EdgesAreConsecutive(
   const ON_SubDEdgePtr eptr[2],
   bool bTestColinearity,
   double distance_tolerance,
@@ -9051,13 +10077,13 @@ static bool EdgesAreMergableTest(
   return true;
 }
 
-bool ON_SubD::EdgesCanBeMerged(
+bool ON_SubD::EdgesAreConsecutive(
   ON_SubDEdgePtr eptr0,
   ON_SubDEdgePtr eptr1
   )
 {
   ON_SubDEdgePtr eptr[2] = { eptr0,eptr1 };
-  return EdgesAreMergableTest(eptr,false,ON_DBL_QNAN,ON_DBL_QNAN,ON_DBL_QNAN);
+  return Internal_EdgesAreConsecutive(eptr,false,ON_DBL_QNAN,ON_DBL_QNAN,ON_DBL_QNAN);
 }
 
 static bool Internal_EdgesPassTypeFilter(
@@ -9115,7 +10141,7 @@ unsigned int ON_SubDimple::MergeColinearEdges(
     {
       eptr[0] = eptr[1];
       eptr[1] = f->EdgePtr(fei0);
-      if (false == EdgesAreMergableTest(eptr, true, distance_tolerance, maximum_aspect, sin_angle_tolerance))
+      if (false == Internal_EdgesAreConsecutive(eptr, true, distance_tolerance, maximum_aspect, sin_angle_tolerance))
         break;
       if (false == Internal_EdgesPassTypeFilter(eptr, bMergeBoundaryEdges, bMergeInteriorCreaseEdges, bMergeInteriorSmoothEdges))
         break;
@@ -9143,14 +10169,14 @@ unsigned int ON_SubDimple::MergeColinearEdges(
       eptr[0] = eptr[1];
       eptr[1] = f->EdgePtr(fei);
       if (
-        EdgesAreMergableTest(eptr, true, distance_tolerance, maximum_aspect, sin_angle_tolerance)
+        Internal_EdgesAreConsecutive(eptr, true, distance_tolerance, maximum_aspect, sin_angle_tolerance)
         && Internal_EdgesPassTypeFilter(eptr, bMergeBoundaryEdges, bMergeInteriorCreaseEdges, bMergeInteriorSmoothEdges)
         )
       {
         // merge edges f->Edge(fei-1) and f->Edge(fei) into f->Edge(fei-1).
-        if (eptr[0].m_ptr != MergeEdges(eptr[0], eptr[1]).m_ptr)
+        if (eptr[0].m_ptr != MergeConsecutiveEdges(eptr[0], eptr[1]).m_ptr)
         {
-          ON_SUBD_ERROR("Bug in edge merging.");
+          ON_SUBD_ERROR("Bug in consecutive edge merging.");
           break;
         }
         ++removed_edge_count;
@@ -9319,6 +10345,13 @@ const class ON_SubDVertex* ON_SubD::VertexFromId(
   return nullptr;
 }
 
+const class ON_SubDVertex* ON_SubD::VertexFromComponentIndex(
+  ON_COMPONENT_INDEX component_index
+) const
+{
+  return (ON_COMPONENT_INDEX::TYPE::subd_vertex == component_index.m_type) ? VertexFromId(component_index.m_index) : nullptr;
+}
+
 const ON_COMPONENT_INDEX ON_SubDVertex::ComponentIndex() const
 {
   return ON_COMPONENT_INDEX(ON_COMPONENT_INDEX::TYPE::subd_vertex,m_id);
@@ -9378,6 +10411,13 @@ const class ON_SubDEdge* ON_SubD::EdgeFromId(
     return subdimple->EdgeFromId(edge_id);
   }
   return nullptr;
+}
+
+const class ON_SubDEdge* ON_SubD::EdgeFromComponentIndex(
+  ON_COMPONENT_INDEX component_index
+) const
+{
+  return (ON_COMPONENT_INDEX::TYPE::subd_edge == component_index.m_type) ? EdgeFromId(component_index.m_index) : nullptr;
 }
 
 const ON_COMPONENT_INDEX ON_SubDEdge::ComponentIndex() const
@@ -9442,6 +10482,12 @@ const class ON_SubDFace* ON_SubD::FaceFromId(
   return nullptr;
 }
 
+const class ON_SubDFace* ON_SubD::FaceFromComponentIndex(
+  ON_COMPONENT_INDEX component_index
+) const
+{
+  return (ON_COMPONENT_INDEX::TYPE::subd_face == component_index.m_type) ? FaceFromId(component_index.m_index) : nullptr;
+}
 
 const ON_COMPONENT_INDEX ON_SubDFace::ComponentIndex() const
 {
@@ -9797,11 +10843,11 @@ const ON_SubDEdge* ON_SubDimple::SplitEdge(
   ON_SubDEdge* new_edge = nullptr;  
   for (;;)
   {
-    new_vertex = AllocateVertex(vertex_tag, edge->SubdivisionLevel(), static_cast<const double*>(vertex_location), 2, edge->m_face_count);
+    new_vertex = AllocateVertex( 0U, vertex_tag, edge->SubdivisionLevel(), static_cast<const double*>(vertex_location), 2, edge->m_face_count);
     if (nullptr == new_vertex)
      break;
 
-    new_edge = AllocateEdge(edge_tag, edge->SubdivisionLevel(), edge->m_face_count);
+    new_edge = AllocateEdge( 0U, edge_tag, edge->SubdivisionLevel(), edge->m_face_count);
     if (nullptr == new_edge)
       break;
 
@@ -9904,8 +10950,8 @@ const ON_SubDEdge* ON_SubDimple::SplitEdge(
     // Either edge was a crease, new_edge is a crease, and sector weights do not applie
     // or edge was X or Smooth, edge is smooth, new_edge is smooth, new_vertex is smooth,
     // and the sector weights at this vertex do not apply.
-    edge->m_sector_coefficient[1] = ON_SubDSectorType::IgnoredSectorWeight;
-    new_edge->m_sector_coefficient[0] = ON_SubDSectorType::IgnoredSectorWeight;
+    edge->m_sector_coefficient[1] = ON_SubDSectorType::IgnoredSectorCoefficient;
+    new_edge->m_sector_coefficient[0] = ON_SubDSectorType::IgnoredSectorCoefficient;
 
     AddVertexToLevel(new_vertex);
     AddEdgeToLevel(new_edge);
@@ -10024,8 +11070,8 @@ const ON_SubDEdge* ON_SubDimple::SplitFace(
 
     new_e = AddEdge(
       ((v[0]->IsSmooth() || v[1]->IsSmooth()) ? ON_SubD::EdgeTag::Smooth : ON_SubD::EdgeTag::SmoothX),
-      v[0], ON_SubDSectorType::UnsetSectorWeight, 
-      v[1], ON_SubDSectorType::UnsetSectorWeight);
+      v[0], ON_SubDSectorType::UnsetSectorCoefficient, 
+      v[1], ON_SubDSectorType::UnsetSectorCoefficient);
     if (nullptr == new_e)
       break;
 
@@ -10519,7 +11565,7 @@ void ON_SubDLevel::ClearEvaluationCache() const
           continue;
         // corner sector coefficients depend on the subtended angle of the sector's crease boundary.
         // All other sector coefficients are independent of vertex location.
-        const_cast<ON_SubDEdge* >(edge)->m_sector_coefficient[evi] = ON_SubDSectorType::Create(edge, evi).SectorWeight();
+        const_cast<ON_SubDEdge* >(edge)->m_sector_coefficient[evi] = ON_SubDSectorType::Create(edge, evi).SectorCoefficient();
       }
     }
   }
@@ -10527,6 +11573,85 @@ void ON_SubDLevel::ClearEvaluationCache() const
   for (const ON_SubDFace* face = m_face[0]; nullptr != face; face = face->m_next_face)
   {
     face->ClearSavedSubdivisionPoints();
+  }
+}
+
+void ON_SubDLevel::ClearNeighborhoodEvaluationCache(const ON_SubDVertex * vertex0, bool bTagChanged ) const
+{
+  ClearEdgeFlags();
+  ClearBoundingBox();
+  m_surface_mesh = ON_SubDMesh::Empty;
+  m_control_net_mesh = ON_SubDMesh::Empty;
+
+  if (nullptr == vertex0)
+    return;
+
+  vertex0->ClearSavedSubdivisionPoints();
+
+  for (unsigned short v0ei = 0; v0ei < vertex0->m_edge_count; ++v0ei)
+  {
+    const ON_SubDEdge* edge0 = ON_SUBD_EDGE_POINTER(vertex0->m_edges[v0ei].m_ptr);
+    if (nullptr == edge0)
+      continue;
+    edge0->ClearSavedSubdivisionPoints();
+    if (bTagChanged)
+      edge0->UnsetSectorCoefficientsForExperts();
+    else if (edge0->IsSmooth())
+    {
+      for (unsigned evi = 0; evi < 2; evi++)
+      {
+        if (false == (edge0->m_sector_coefficient[evi] > 0.0 && edge0->m_sector_coefficient[evi] < 1.0))
+          continue;
+        const ON_SubDVertex* v = edge0->m_vertex[evi];
+        if (nullptr == v)
+          continue;
+        if (ON_SubD::VertexTag::Corner != v->m_vertex_tag)
+          continue;
+        // corner sector coefficients depend on the subtended angle of the sector's crease boundary.
+        // All other sector coefficients are independent of vertex location.
+        edge0->UnsetSectorCoefficientsForExperts();
+      }
+    }
+  }
+
+  for (unsigned short v0fi = 0; v0fi < vertex0->m_face_count; ++v0fi)
+  {
+    const ON_SubDFace* face0 = vertex0->m_faces[v0fi];
+    if (nullptr == face0)
+      continue;
+    face0->ClearSavedSubdivisionPoints();
+    const ON_SubDEdgePtr* face0_eptr = face0->m_edge4;
+    for (unsigned short f0ei = 0; f0ei < face0->m_edge_count; ++f0ei, ++face0_eptr)
+    {
+      if (4 == f0ei)
+      {
+        face0_eptr = face0->m_edgex;
+        if (nullptr == face0_eptr)
+          break;
+      }
+      const ON_SubDEdge* edge0 = ON_SUBD_EDGE_POINTER(face0_eptr->m_ptr);
+      if (nullptr == edge0)
+        continue;
+      edge0->ClearSavedSubdivisionPoints();
+      const ON_SubDVertex* vertex1 = edge0->m_vertex[ON_SUBD_EDGE_DIRECTION(face0_eptr->m_ptr)];
+      if (vertex0 == vertex1 || nullptr == vertex1)
+        continue;
+      vertex1->ClearSavedSubdivisionPoints();
+      for (unsigned short v1fi = 0; v1fi < vertex1->m_face_count; ++v1fi)
+      {
+        const ON_SubDFace* face1 = vertex1->m_faces[v1fi];
+        if (nullptr == face1 || face0 == face1)
+          continue;
+        face1->ClearSavedSubdivisionPoints();
+      }
+      for (unsigned short v1ei = 0; v1ei < vertex1->m_edge_count; ++v1ei)
+      {
+        const ON_SubDEdge* edge1 = ON_SUBD_EDGE_POINTER(vertex1->m_edges[v1ei].m_ptr);
+        if (nullptr == edge1)
+          continue;
+        edge1->ClearSavedSubdivisionPoints();
+      }
+    }
   }
 }
 
@@ -10605,6 +11730,14 @@ bool ON_SubD::DeleteComponents(
     return true; // nothing to delete
 
   return DeleteComponents(cptr_list.Array(),cptr_list.UnsignedCount(),false);
+}
+
+bool ON_SubD::DeleteComponents(
+  const ON_SimpleArray<ON_SubDComponentPtr>& cptr_list,
+  bool bMarkDeletedFaceEdges
+)
+{
+  return DeleteComponents(cptr_list.Array(), cptr_list.UnsignedCount(), bMarkDeletedFaceEdges);
 }
 
 bool ON_SubD::DeleteComponents(
@@ -10794,6 +11927,40 @@ bool ON_SubD::DeleteComponentsForExperts(
   return (deleted_component_count > 0);
 }
 
+bool ON_SubD::DeleteMarkedComponents(
+  bool bDeleteMarkedComponents,
+  ON__UINT8 mark_bits,
+  bool bMarkDeletedFaceEdges
+)
+{
+  ON_SimpleArray<ON_SubDComponentPtr> cptr_list;
+  GetMarkedComponents(bDeleteMarkedComponents, mark_bits, true, true, true, cptr_list);
+  return DeleteComponents(
+    cptr_list.Array(),
+    cptr_list.UnsignedCount(),
+    bMarkDeletedFaceEdges
+  );
+}
+
+bool ON_SubD::DeleteMarkedComponentsForExperts(
+  bool bDeleteMarkedComponents,
+  ON__UINT8 mark_bits,
+  bool bDeleteIsolatedEdges,
+  bool bUpdateTagsAndCoefficients,
+  bool bMarkDeletedFaceEdges
+)
+{
+  ON_SimpleArray<ON_SubDComponentPtr> cptr_list;
+  GetMarkedComponents(bDeleteMarkedComponents, mark_bits, true, true, true, cptr_list);
+  return DeleteComponentsForExperts(
+    cptr_list.Array(),
+    cptr_list.UnsignedCount(),
+    bDeleteIsolatedEdges,
+    bUpdateTagsAndCoefficients,
+    bMarkDeletedFaceEdges
+  );
+}
+
 unsigned int ON_SubDLevel::UpdateEdgeTags(
   bool bUnsetEdgeTagsOnly
   )
@@ -10822,20 +11989,20 @@ unsigned int ON_SubDLevel::UpdateEdgeTags(
     if (2 != edge->m_face_count)
     {
       edge->m_edge_tag = ON_SubD::EdgeTag::Crease;
-      edge->m_sector_coefficient[0] = ON_SubDSectorType::IgnoredSectorWeight;
-      edge->m_sector_coefficient[1] = ON_SubDSectorType::IgnoredSectorWeight;
+      edge->m_sector_coefficient[0] = ON_SubDSectorType::IgnoredSectorCoefficient;
+      edge->m_sector_coefficient[1] = ON_SubDSectorType::IgnoredSectorCoefficient;
     }
     else
     {
-      edge->m_sector_coefficient[0] = ON_SubDSectorType::UnsetSectorWeight;
-      edge->m_sector_coefficient[1] = ON_SubDSectorType::UnsetSectorWeight;
+      edge->m_sector_coefficient[0] = ON_SubDSectorType::UnsetSectorCoefficient;
+      edge->m_sector_coefficient[1] = ON_SubDSectorType::UnsetSectorCoefficient;
       const bool bBothVertexTagsAreSet
         =  ON_SubD::VertexTag::Unset != edge->m_vertex[0]->m_vertex_tag
         && ON_SubD::VertexTag::Unset != edge->m_vertex[1]->m_vertex_tag
         ;
       const unsigned int tagged_end_index = edge->TaggedEndIndex();
       if (0 == tagged_end_index || 1 == tagged_end_index)
-        edge->m_sector_coefficient[tagged_end_index] = ON_SubDSectorType::IgnoredSectorWeight;
+        edge->m_sector_coefficient[tagged_end_index] = ON_SubDSectorType::IgnoredSectorCoefficient;
 
       switch (edge_tag0)
       {
@@ -10849,8 +12016,8 @@ unsigned int ON_SubDLevel::UpdateEdgeTags(
           edge->m_edge_tag = ON_SubD::EdgeTag::Smooth;
           if (3 == tagged_end_index)
           {
-            edge->m_sector_coefficient[0] = ON_SubDSectorType::IgnoredSectorWeight;
-            edge->m_sector_coefficient[1] = ON_SubDSectorType::IgnoredSectorWeight;
+            edge->m_sector_coefficient[0] = ON_SubDSectorType::IgnoredSectorCoefficient;
+            edge->m_sector_coefficient[1] = ON_SubDSectorType::IgnoredSectorCoefficient;
           }
         }
         break;
@@ -10862,14 +12029,14 @@ unsigned int ON_SubDLevel::UpdateEdgeTags(
         }
         else if (3 == tagged_end_index && bBothVertexTagsAreSet)
         {
-          edge->m_sector_coefficient[0] = ON_SubDSectorType::IgnoredSectorWeight;
-          edge->m_sector_coefficient[1] = ON_SubDSectorType::IgnoredSectorWeight;
+          edge->m_sector_coefficient[0] = ON_SubDSectorType::IgnoredSectorCoefficient;
+          edge->m_sector_coefficient[1] = ON_SubDSectorType::IgnoredSectorCoefficient;
         }
         break;
 
       case ON_SubD::EdgeTag::Crease:
-        edge->m_sector_coefficient[0] = ON_SubDSectorType::IgnoredSectorWeight;
-        edge->m_sector_coefficient[1] = ON_SubDSectorType::IgnoredSectorWeight;
+        edge->m_sector_coefficient[0] = ON_SubDSectorType::IgnoredSectorCoefficient;
+        edge->m_sector_coefficient[1] = ON_SubDSectorType::IgnoredSectorCoefficient;
         break;
 
       //case ON_SubD::EdgeTag::Sharp:
@@ -10915,48 +12082,11 @@ unsigned int ON_SubDLevel::UpdateVertexTags(
       continue;
     }
 
-    const unsigned int edge_count = vertex->m_edge_count;
-    unsigned int creased_edge_count = 0;
-    unsigned int sharp_edge_count = 0;
-    for (unsigned int vei = 0; vei < edge_count; vei++)
-    {
-      const ON_SubDEdge* edge = ON_SUBD_EDGE_POINTER(vertex->m_edges[vei].m_ptr);
-      if (nullptr == edge)
-      {
-        ON_SUBD_ERROR("nullptr vertex->m_edges[] values");
-        continue;
-      }
-      if ( ON_SubD::EdgeTag::Crease == edge->m_edge_tag || 2 != edge->m_face_count )
-        creased_edge_count++;
-      else if (((ON_SubD::EdgeTag)3) == edge->m_edge_tag) // ON_SubD::EdgeTag::Sharp
-      {
-        ON_SUBD_ERROR("ON_SubD::EdgeTag::Sharp is not valid in this version of opennurbs.");
-        sharp_edge_count++;
-      }
+    const ON_SubD::VertexTag vertex_tag1 = vertex->SuggestedVertexTag(true, false);
+    if (ON_SubD::VertexTag::Unset == vertex_tag1)
+      continue;
 
-      // NOTE: 
-      //  edges tagged as ON_SubD::EdgeTag::Unset with two faces
-      //  ending at a vertex with 3 or more edges
-      //  will be tagged as smooth in subsequent passes
-      //  once this vertex is tagged as smooth.
-    }
-
-
-    ON_SubD::VertexTag vertex_tag1 = vertex_tag0;
-    if ( (creased_edge_count+sharp_edge_count) >= 2 )
-    {
-      if ( ON_SubD::VertexTag::Corner != vertex_tag0 )
-        vertex_tag1 = ON_SubD::VertexTag::Crease;
-    }
-    else if ( edge_count >= 2 )
-    {
-      if ( 1 == creased_edge_count && 0 == sharp_edge_count )
-        vertex_tag1 = ON_SubD::VertexTag::Dart;
-      else
-        vertex_tag1 = ON_SubD::VertexTag::Smooth;
-    }
-
-    if (vertex_tag0 != vertex_tag1)
+    if ( vertex_tag0 != vertex_tag1)
     {
       vertex->m_vertex_tag = vertex_tag1;
       vertex_change_count++;
@@ -11203,11 +12333,13 @@ unsigned int ON_SubDimple::DeleteComponents(
     deleted_component_count++;
   }
 
+  ON_ComponentStatus allsetcheck;
   ON_SubDEdge* next_edge = level->m_edge[0];
   for (ON_SubDEdge* edge = next_edge; nullptr != edge; edge = next_edge)
   {
     next_edge = const_cast< ON_SubDEdge* >(edge->m_next_edge);
-    bool bDelete = (ON_ComponentStatus::AllSet == edge->m_status || (bDeleteIsolatedEdges && 0 == edge->m_face_count) );
+    allsetcheck = ON_ComponentStatus::LogicalAnd(ON_ComponentStatus::AllSet, edge->m_status);
+    bool bDelete = (ON_ComponentStatus::AllSet == allsetcheck || (bDeleteIsolatedEdges && 0 == edge->m_face_count) );
     if (false == bDelete)
     {
       for (unsigned short evi = 0; evi < 2 && false == bDelete; evi++)
@@ -11232,7 +12364,8 @@ unsigned int ON_SubDimple::DeleteComponents(
   for (ON_SubDVertex* vertex = next_vertex; nullptr != vertex; vertex = next_vertex)
   {
     next_vertex = const_cast<ON_SubDVertex*>(vertex->m_next_vertex);
-    bool bDelete = (ON_ComponentStatus::AllSet == vertex->m_status || (bDeleteIsolatedEdges && 0 == vertex->m_face_count) || 0 == vertex->m_edge_count );
+    allsetcheck = ON_ComponentStatus::LogicalAnd(ON_ComponentStatus::AllSet, vertex->m_status);
+    bool bDelete = (ON_ComponentStatus::AllSet == allsetcheck || (bDeleteIsolatedEdges && 0 == vertex->m_face_count) || 0 == vertex->m_edge_count );
     if ( false == bDelete )
       continue;
 
@@ -11282,8 +12415,8 @@ unsigned int ON_SubDimple::DeleteComponents(
       if (edge->m_face_count != 2)
         edge->m_edge_tag = ON_SubD::EdgeTag::Crease;
 
-      edge->m_sector_coefficient[0] = ON_SubDSectorType::UnsetSectorWeight;
-      edge->m_sector_coefficient[1] = ON_SubDSectorType::UnsetSectorWeight;
+      edge->m_sector_coefficient[0] = ON_SubDSectorType::UnsetSectorCoefficient;
+      edge->m_sector_coefficient[1] = ON_SubDSectorType::UnsetSectorCoefficient;
     }
   }
 
@@ -11313,13 +12446,6 @@ unsigned int ON_SubDimple::DeleteComponents(
       vertex->m_edges[vertex->m_edge_count++] = vertex->m_edges[vei];
     }
 
-    if ( crease_count > 2 )
-      vertex->m_vertex_tag = ON_SubD::VertexTag::Corner;
-    else if (false == bInteriorVertex || crease_count > 1)
-    {
-      if (false == vertex->IsCreaseOrCorner())
-        vertex->m_vertex_tag = ON_SubD::VertexTag::Crease;
-    }
 
     count = vertex->m_face_count;
     vertex->m_face_count = 0;
@@ -11336,6 +12462,18 @@ unsigned int ON_SubDimple::DeleteComponents(
       level->RemoveVertex(vertex);
       m_heap.ReturnVertex(vertex);
       deleted_component_count++;
+    }
+    else
+    {
+      if (1 == crease_count && 1 == vertex->m_edge_count && 0 == vertex->m_face_count)
+        vertex->m_vertex_tag = ON_SubD::VertexTag::Corner;
+      else if (crease_count > 2)
+        vertex->m_vertex_tag = ON_SubD::VertexTag::Corner;
+      else if (false == bInteriorVertex || crease_count > 1)
+      {
+        if (false == vertex->IsCreaseOrCorner())
+          vertex->m_vertex_tag = ON_SubD::VertexTag::Crease;
+      }
     }
   }
 
@@ -11358,7 +12496,7 @@ unsigned int ON_SubDimple::DeleteComponents(
     }
   }
 
-  ChangeContentSerialNumber();
+  ChangeContentSerialNumber(false);
 
   return deleted_component_count;
 }
@@ -11440,6 +12578,147 @@ unsigned int ON_SubD::ClearComponentMarks(
   return clear_count;
 }
 
+unsigned int ON_SubD::ClearGroupIds() const
+{
+  return ClearComponentGroupIds(true, true, true);
+}
+
+unsigned int ON_SubD::ClearVertexGroupIds() const
+{
+  return ClearComponentGroupIds(true, false, false);
+}
+
+unsigned int ON_SubD::ClearEdgeGroupIds() const
+{
+  return ClearComponentGroupIds(false, true, false);
+}
+
+unsigned int ON_SubD::ClearFaceGroupIds() const
+{
+  return ClearComponentGroupIds(false, false, true);
+}
+
+unsigned int ON_SubD::ClearComponentGroupIds(
+  bool bClearVertexGroupIds,
+  bool bClearEdgeGroupIds,
+  bool bClearFaceGroupIds
+) const
+{
+  unsigned int clear_count = 0;
+
+  if (bClearVertexGroupIds)
+  {
+    ON_SubDVertexIterator vit(*this);
+    for (const ON_SubDVertex* v = vit.FirstVertex(); nullptr != v; v = vit.NextVertex())
+    {
+      if (0 != v->m_group_id)
+      {
+        v->m_group_id = 0;
+        clear_count++;
+      }
+    }
+  }
+
+  if (bClearEdgeGroupIds)
+  {
+    ON_SubDEdgeIterator eit(*this);
+    for (const ON_SubDEdge* e = eit.FirstEdge(); nullptr != e; e = eit.NextEdge())
+    {
+      if (0 != e->m_group_id)
+      {
+        e->m_group_id = 0;
+        clear_count++;
+      }
+    }
+  }
+
+  if (bClearFaceGroupIds)
+  {
+    ON_SubDFaceIterator fit(*this);
+    for (const ON_SubDFace* f = fit.FirstFace(); nullptr != f; f = fit.NextFace())
+    {
+      if (0 != f->m_group_id)
+      {
+        f->m_group_id = 0;
+        clear_count++;
+      }
+    }
+  }
+
+  return clear_count;
+}
+
+
+unsigned int ON_SubD::ClearMarkBits() const
+{
+  return ClearComponentMarkBits(true, true, true);
+}
+
+unsigned int ON_SubD::ClearVertexMarkBits() const
+{
+  return ClearComponentMarkBits(true, false, false);
+}
+
+unsigned int ON_SubD::ClearEdgeMarkBits() const
+{
+  return ClearComponentMarkBits(false, true, false);
+}
+
+unsigned int ON_SubD::ClearFaceMarkBits() const
+{
+  return ClearComponentMarkBits(false, false, true);
+}
+
+unsigned int ON_SubD::ClearComponentMarkBits(
+  bool bClearVertexMarkBits,
+  bool bClearEdgeMarkBits,
+  bool bClearFaceMarkBits
+) const
+{
+  unsigned int clear_count = 0;
+
+  if (bClearVertexMarkBits)
+  {
+    ON_SubDVertexIterator vit(*this);
+    for (const ON_SubDVertex* v = vit.FirstVertex(); nullptr != v; v = vit.NextVertex())
+    {
+      if (0 != v->m_status.MarkBits())
+      {
+        v->m_status.SetMarkBits(0);
+        clear_count++;
+      }
+    }
+  }
+
+  if (bClearEdgeMarkBits)
+  {
+    ON_SubDEdgeIterator eit(*this);
+    for (const ON_SubDEdge* e = eit.FirstEdge(); nullptr != e; e = eit.NextEdge())
+    {
+      if (0 != e->m_status.MarkBits())
+      {
+        e->m_status.SetMarkBits(0);
+        clear_count++;
+      }
+    }
+  }
+
+  if (bClearFaceMarkBits)
+  {
+    ON_SubDFaceIterator fit(*this);
+    for (const ON_SubDFace* f = fit.FirstFace(); nullptr != f; f = fit.NextFace())
+    {
+      if (0 != f->m_status.MarkBits())
+      {
+        f->m_status.SetMarkBits(0);
+        clear_count++;
+      }
+    }
+  }
+
+  return clear_count;
+}
+
 unsigned int ON_SubD::UnselectComponents(
     bool bUnselectAllVertices,
     bool bUnselectAllEdges,
@@ -11511,7 +12790,59 @@ unsigned int ON_SubD::SetComponentMarks(
   return set_count;
 }
 
+unsigned int ON_SubD::GetMarkedComponents(
+  bool bAddMarkedComponents,
+  ON__UINT8 mark_bits,
+  bool bIncludeVertices,
+  bool bIncludeEdges,
+  bool bIncludeFaces,
+  ON_SimpleArray< ON_SubDComponentPtr >& component_list
+) const
+{
+  bAddMarkedComponents = bAddMarkedComponents ? true : false; // so we can use == on boolean values
+  unsigned int mark_count = 0;
 
+  if (bIncludeVertices)
+  {
+    ON_SubDVertexIterator vit(*this);
+    for (const ON_SubDVertex* v = vit.FirstVertex(); nullptr != v; v = vit.NextVertex())
+    {
+      if (bAddMarkedComponents == v->m_status.IsMarked(mark_bits))
+      {
+        component_list.Append(v->ComponentPtr());
+        mark_count++;
+      }
+    }
+  }
+
+  if (bIncludeEdges)
+  {
+    ON_SubDEdgeIterator eit(*this);
+    for (const ON_SubDEdge* e = eit.FirstEdge(); nullptr != e; e = eit.NextEdge())
+    {
+      if (bAddMarkedComponents == e->m_status.IsMarked(mark_bits))
+      {
+        component_list.Append(e->ComponentPtr());
+        mark_count++;
+      }
+    }
+  }
+
+  if (bIncludeFaces)
+  {
+    ON_SubDFaceIterator fit(*this);
+    for (const ON_SubDFace* f = fit.FirstFace(); nullptr != f; f = fit.NextFace())
+    {
+      if (bAddMarkedComponents == f->m_status.IsMarked(mark_bits))
+      {
+        component_list.Append(f->ComponentPtr());
+        mark_count++;
+      }
+    }
+  }
+
+  return mark_count;
+}
 
 unsigned int ON_SubD::GetMarkedComponents(
     bool bIncludeVertices,
@@ -11671,10 +13002,10 @@ unsigned int ON_SubD::SetComponentStatus(
 }
 
 ON_SubDComponentMarksClearAndRestore::ON_SubDComponentMarksClearAndRestore(
-  ON_SubD& subd
+  const ON_SubD& subd
 )  
 {
-  m_subd.ShareContentsFrom(subd);
+  m_subd.ShareDimple(subd);
   m_subd.ClearComponentMarks(true, true, true, &m_component_list);
 }
 
@@ -11823,9 +13154,16 @@ static unsigned int Internal_MarkStuffAndMaybeMoveVertices(
       }
     }
   }
+  else if (
+    bTransform && nullptr != xform
+    && (ON_SubDComponentLocation::Surface == component_location || ON_SubDComponentLocation::Unset == component_location)
+    && 1 == cptr_count
+    && nullptr != cptr_list[0].Vertex()
+    )
+  {
+  }
   else
   {
-
     for (size_t i = 0; i < cptr_count; i++)
     {
       switch (cptr_list[i].ComponentType())
@@ -11854,34 +13192,42 @@ static unsigned int Internal_MarkStuffAndMaybeMoveVertices(
           if (nullptr == e)
             continue;
           ++list_edge_count;
-          if (e->m_status.RuntimeMark())
+          if (e->Mark())
             continue;
           if (bTransform)
           {
-            e->m_status.SetRuntimeMark();
+            e->SetMark();
             for (unsigned int evi = 0; evi < 2; ++evi)
             {
               const ON_SubDVertex* v = e->m_vertex[evi];
-              if (nullptr != v && false == v->m_status.RuntimeMark())
+              if (nullptr != v && false == v->Mark())
               {
-                v->m_status.SetRuntimeMark();
+                v->SetMark();
                 const_cast<ON_SubDVertex*>(v)->Transform(false, *xform);
                 ++marked_vertex_count;
               }
             }
           }
-          else if (bExtrudeBoundaries && 1 == e->m_face_count && nullptr != e->m_face2[0].Face())
-            ++potential_isolated_edge_count;
+          else
+          {
+            if (bExtrudeBoundaries && 1 == e->m_face_count && nullptr != e->m_face2[0].Face())
+            {
+              // It's a boundary edge and we will mark it and its vertices later after we make sure
+              // a face touching this edge isn't in the cptr_list[].
+              ++potential_isolated_edge_count;
+            }
+            // otherwise ignore interior edges
+          }
         }
         break;
 
       case ON_SubDComponentPtr::Type::Face:
         {
           const ON_SubDFace* f = cptr_list[i].Face();
-          if (nullptr != f)
+          if (nullptr != f && false == f->Mark())
           {
             ++list_face_count;
-            f->m_status.SetRuntimeMark();
+            f->SetMark();
             const unsigned int face_vertex_count = f->m_edge_count;
             for (unsigned int fvi = 0; fvi < face_vertex_count; ++fvi)
             {
@@ -11918,20 +13264,20 @@ static unsigned int Internal_MarkStuffAndMaybeMoveVertices(
         if (nullptr == e)
           continue;
 
-        if (e->m_status.RuntimeMark())
+        if (e->Mark())
           continue; // this edge us part of a boundary belonging to a face in  cptr_list[]
 
         if (1 == e->m_face_count && nullptr != e->m_face2[0].Face())
         {
           // this boundary edge was explicitly picked its attached face was not picked.
           // It will be extruded to a face.
-          e->m_status.SetRuntimeMark();
+          e->SetMark();
           for (unsigned int evi = 0; evi < 2; ++evi)
           {
             const ON_SubDVertex* v = e->m_vertex[evi];
-            if (nullptr != v && false == v->m_status.RuntimeMark())
+            if (nullptr != v && false == v->Mark())
             {
-              v->m_status.SetRuntimeMark();
+              v->SetMark();
               ++marked_vertex_count;
             }
           }
@@ -11940,10 +13286,10 @@ static unsigned int Internal_MarkStuffAndMaybeMoveVertices(
         }
       }
     }
-
   }
 
-  const_cast<ON_SubD&>(subd).ChangeContentSerialNumberForExperts();
+  if ( bTransform )
+    const_cast<ON_SubD&>(subd).ChangeContentSerialNumberForExperts(false);
 
   return marked_vertex_count;
 }
@@ -12050,9 +13396,7 @@ unsigned int ON_SubD::ExtrudeComponents(
 {
   const bool bExtrudeBoundaries = true;
   const bool bPermitNonManifoldEdgeCreation = false;
-  const ON_SubD::EdgeTag original_edge_tag = ON_SubD::EdgeTag::Unset;
-  const ON_SubD::EdgeTag moved_edge_tag = ON_SubD::EdgeTag::Unset;
-  return ExtrudeComponents(xform, ci_list, ci_count, bExtrudeBoundaries, bPermitNonManifoldEdgeCreation, original_edge_tag, moved_edge_tag);
+  return ExtrudeComponents(xform, ci_list, ci_count, bExtrudeBoundaries, bPermitNonManifoldEdgeCreation);
 }
 
 unsigned int ON_SubD::ExtrudeComponents(
@@ -12060,9 +13404,7 @@ unsigned int ON_SubD::ExtrudeComponents(
   const ON_COMPONENT_INDEX* ci_list,
   size_t ci_count,
   bool bExtrudeBoundaries,
-  bool bPermitNonManifoldEdgeCreation,
-  ON_SubD::EdgeTag original_edge_tag,
-  ON_SubD::EdgeTag moved_edge_tag
+  bool bPermitNonManifoldEdgeCreation
 )
 {
   if ( 
@@ -12082,128 +13424,777 @@ unsigned int ON_SubD::ExtrudeComponents(
     cptr_list.Array(),
     cptr_list.UnsignedCount(),
     bExtrudeBoundaries,
-    bPermitNonManifoldEdgeCreation,
-    original_edge_tag,
-    moved_edge_tag
+    bPermitNonManifoldEdgeCreation
     );
 }
 
-class ON_Internal_ExtrudedVertexPair
+/*
+ON_Internal_ExtrudedVertex manages a vertex that is extruded into a "side" edge during the extrusion process.
+*/
+class ON_Internal_ExtrudedVertex
 {
 public:
-  ON_Internal_ExtrudedVertexPair() = default;
-  ~ON_Internal_ExtrudedVertexPair() = default;
-  ON_Internal_ExtrudedVertexPair(const ON_Internal_ExtrudedVertexPair&) = default;
-  ON_Internal_ExtrudedVertexPair& operator=(const ON_Internal_ExtrudedVertexPair&) = default;
+  ON_Internal_ExtrudedVertex() = default;
+  ~ON_Internal_ExtrudedVertex() = default;
+  ON_Internal_ExtrudedVertex(const ON_Internal_ExtrudedVertex&) = default;
+  ON_Internal_ExtrudedVertex& operator=(const ON_Internal_ExtrudedVertex&) = default;
 
-  static const ON_Internal_ExtrudedVertexPair Unset;
+  static const ON_Internal_ExtrudedVertex Unset;
 
-  // the marked vertex was in the original subd and will be moved.
-  ON_SubDVertex* m_marked_vertex = nullptr;
+  /////////////////////////////////////////////////////////////
+  //
+  // Up to 2 extruded edges that share this extruded vertex.
+  // In rare cases there may be more. This information is used only
+  // to speed up the setting of m_side_group_id.
+  // 
+  class ON_Internal_ExtrudedEdge* m_extruded_edges[2] = {};
+  unsigned char m_extruded_edges_count = 0; // 0, 1, 2, or 3. 3 means 3 or more
 
-  // the unmarked vertex replaces the marked vertex at the original location.
-  ON_SubDVertex* m_unmarked_vertex = nullptr;
+  /////////////////////////////////////////////////////////////
+  //
+  // State of the vertex before the extrusion was applied
+  // 
 
-  // from new vertex to original vertex
-  ON_SubDEdge* m_new_side = nullptr;
+  // tag the original vertex had before the extrusion was performed.
+  ON_SubD::VertexTag m_initial_vertex_tag = ON_SubD::VertexTag::Unset;
 
-  static int CompareMarkedVertexId(
-    const ON_Internal_ExtrudedVertexPair* lhs,
-    const ON_Internal_ExtrudedVertexPair* rhs
-  );
-};
+  // in complicated cases when the initial vertex is a crease/corner, m_connecting_edge_tag may be set to crease.
+  ON_SubD::EdgeTag m_connecting_edge_tag = ON_SubD::EdgeTag::Unset;
 
-const ON_Internal_ExtrudedVertexPair ON_Internal_ExtrudedVertexPair::Unset ON_CLANG_CONSTRUCTOR_BUG_INIT(ON_Internal_ExtrudedVertexPair);
+  // id of the original vertex - used to sort and search an array of ON_Internal_ExtrudedVertex elements.
+  unsigned int m_initial_vertex_id = 0;
 
+  //// The face counts do not include the side faces created during the extrusion process.
+  //unsigned short m_moved_face_count = 0;
+  //unsigned short m_stationary_face_count = 0;
 
-class ON_Internal_ExtrudedSide
-{
-public:
-  ON_Internal_ExtrudedSide() = default;
-  ~ON_Internal_ExtrudedSide() = default;
-  ON_Internal_ExtrudedSide(const ON_Internal_ExtrudedSide&) = default;
-  ON_Internal_ExtrudedSide& operator=(const ON_Internal_ExtrudedSide&) = default;
+  //// Edge counts do not include the side edge "m_connecting_edge" that is created during the extrusion process.
+  //// There are three sets of edges
+  ////   Existing edges that will be extruded into side faces.
+  ////   Existing edges that will be moved during the extrusion process.
+  ////   Existing edges that will be stationary during the extrusion process.
+  //unsigned short m_extruded_edge_count = 0; // these are edges in the new_sides[] array
+  //unsigned short m_wire_edge_count = 0; // moved or stationary
+  //unsigned short m_moved_crease_edge_count = 0;
+  //unsigned short m_moved_smooth_edge_count = 0;
+  //unsigned short m_stationary_crease_edge_count = 0;
+  //unsigned short m_stationary_smooth_edge_count = 0;
+  
+  /////////////////////////////////////////////////////////////
+  //
+  // Additional information that will be created or modified during the extrusion.
+  // 
 
-  static const ON_Internal_ExtrudedSide Unset;
+  // Used to sort the sides into groups of edges that are connected
+  unsigned m_side_group_id = 0;
 
-  bool m_bExtrudedBoundaryEdge = false;
-  bool m_bHasMovedFace = false; // true if the edge touches a fae that will be moved.
-  bool m_bHasStationaryFace = false; // true if the edge touches a face that will remain stationary.
-  ON_SubD::EdgeTag m_original_marked_edge_tag = ON_SubD::EdgeTag::Unset;
+  // This is the vertex in the original object. (This vertex is moved).
+  ON_SubDVertex* m_original_vertex = nullptr;
 
-  ON_SubD::EdgeTag MarkedEdgeTag() const
+  // This vertex is new. It is a copy of the original vertex and remains at the original location.
+  ON_SubDVertex* m_copied_vertex = nullptr;
+
+  // m_connecting_edge begins at m_copied_vertex and terminates at m_original_vertex;
+  ON_SubDEdge* m_connecting_edge = nullptr;
+  
+
+  bool SetFromInitialVertex(ON_SubDVertex* initial_vertex)
   {
-    // this tag is calculated just before the side face is made
-    if ( m_bExtrudedBoundaryEdge )
+    *this = ON_Internal_ExtrudedVertex::Unset;
+
+    if ( nullptr == initial_vertex || 0 == initial_vertex->m_id )
+      return false;
+
+    // validate initial_vertex topology information so subsequent code assumptions are met.
+    if (initial_vertex->m_edge_count <= 0)
+      return false;
+    if (initial_vertex->m_edge_count > initial_vertex->m_edge_capacity)
+      return false;
+    if (nullptr == initial_vertex->m_edges)
+      return false;
+    for (unsigned short vei = 0; vei < initial_vertex->m_edge_count; ++vei)
     {
-      const ON_SubDVertex* v0 = nullptr != m_marked_edge ? m_marked_edge->m_vertex[0] : nullptr;
-      const ON_SubDVertex* v1 = nullptr != m_marked_edge ? m_marked_edge->m_vertex[1] : nullptr;
-      if ( 
-        m_bHasMovedFace 
-        && false == m_bHasStationaryFace
-        && nullptr != v0
-        && nullptr != v1
-        )
+      const ON_SubDEdgePtr eptr = initial_vertex->m_edges[vei];
+      const ON_SubDEdge* e = ON_SUBD_EDGE_POINTER(eptr.m_ptr);
+      if (nullptr == e || nullptr == e->m_vertex[0] || nullptr == e->m_vertex[1])
+        return false;
+      if (e->m_vertex[0]->m_id == e->m_vertex[1]->m_id)
+        return false;
+      if (initial_vertex != e->m_vertex[ON_SUBD_EDGE_DIRECTION(eptr.m_ptr)])
+        return false;
+    }
+
+    if (initial_vertex->m_face_count > 0)
+    {
+      if (initial_vertex->m_face_count > initial_vertex->m_face_capacity)
+        return false;
+      if (nullptr == initial_vertex->m_faces)
+        return false;
+    }
+
+    m_initial_vertex_tag = initial_vertex->m_vertex_tag;
+    m_initial_vertex_id = initial_vertex->m_id;
+    m_original_vertex = initial_vertex;
+
+    return true;
+  }
+
+  bool SetConnectingEdgeTag();  
+
+  bool ExtrudeVertex(ON_SubD& subd, const ON_Xform& xform)
+  {
+    if (nullptr != m_copied_vertex)
+      return ON_SUBD_RETURN_ERROR(false);
+
+    if (nullptr == m_original_vertex)
+      return ON_SUBD_RETURN_ERROR(false);
+
+    //bool bMarkedInteriorCrease = false;
+    //bool bUnmarkedInteriorCrease = false;
+    //for (unsigned short vei = 0; vei < m_original_vertex->m_edge_count; ++vei)
+    //{
+    //  const ON_SubDEdge* e = ON_SUBD_EDGE_POINTER(m_original_vertex->m_edges[vei].m_ptr);
+    //  if (nullptr == e || 2 != e->m_face_count)
+    //    continue;
+    //  const ON_SubDFace* f[2] = { ON_SUBD_FACE_POINTER(e->m_face2[0].m_ptr), ON_SUBD_FACE_POINTER(e->m_face2[1].m_ptr) };
+    //  if (nullptr == f[0] || nullptr == f[1])
+    //    continue;
+    //  const bool bFaceMark = f[0]->Mark();
+    //  if (bFaceMark == f[1]->Mark())
+    //  {
+    //    if (bFaceMark)
+    //    {
+    //      bMarkedInteriorCrease = true;
+    //      if (bUnmarkedInteriorCrease)
+    //        break;
+    //    }
+    //    else
+    //    {
+    //      bUnmarkedInteriorCrease = true;
+    //      if (bMarkedInteriorCrease)
+    //        break;
+    //    }
+    //  }
+    //}
+
+    const ON_3dPoint P = m_original_vertex->ControlNetPoint();
+    for (;;)
+    {
+      // transform the original vertex
+      m_original_vertex->m_vertex_tag = ON_SubD::VertexTag::Unset;
+
+      if (false == m_original_vertex->Transform(false, xform))
+        break;
+
+      m_copied_vertex = subd.AddVertex(ON_SubD::VertexTag::Unset, P);
+      if (nullptr == m_copied_vertex)
+        break;
+
+      const unsigned short face_count = m_original_vertex->m_face_count;
+      if (face_count > 0 && false == subd.GrowVertexFaceArray(m_copied_vertex, face_count))
+        break;
+
+      if (false == subd.GrowVertexEdgeArray(m_copied_vertex, m_original_vertex->m_edge_count + 1))
+        break;
+
+      // edge from m_copied_vertex (stationary) to m_original_vertex (moved).
+      m_connecting_edge = subd.AddEdge(m_connecting_edge_tag, m_copied_vertex, m_original_vertex);
+      if (nullptr == m_connecting_edge)
+        break;
+
+      //if (bMarkedInteriorCrease && bUnmarkedInteriorCrease)
+      //  m_connecting_edge->m_edge_tag = ON_SubD::EdgeTag::Crease;
+
+      for (unsigned short vei = 0; vei < m_original_vertex->m_edge_count; ++vei)
       {
-        return
-          (v0->IsDartOrCreaseOrCorner() && v1->IsDartOrCreaseOrCorner())
-          ? ON_SubD::EdgeTag::SmoothX
-          : ON_SubD::EdgeTag::Smooth;
+        ON_SubDEdge* e = ON_SUBD_EDGE_POINTER(m_original_vertex->m_edges[vei].m_ptr);
+        if (nullptr != e)
+          e->UnsetSectorCoefficientsForExperts();
+      }
+
+      return true;
+    }
+
+    if (nullptr != m_copied_vertex)
+    {
+      ON_SubDComponentPtr cptr = m_copied_vertex->ComponentPtr();
+      subd.DeleteComponentsForExperts(&cptr, 1, false, false, false);
+      m_copied_vertex = nullptr;
+    }
+
+    ON_SUBD_ERROR("Unable to extrude m_original_vertex");
+    m_original_vertex->m_vertex_tag = this->m_initial_vertex_tag;
+    m_original_vertex->SetControlNetPoint(P,false);
+    return false;
+  }
+
+  bool AttachUnmarkedFacesToCopiedVertex()
+  {
+    if (nullptr == m_copied_vertex)
+      return ON_SUBD_RETURN_ERROR(false);
+    if (0 != m_copied_vertex->m_face_count)
+      return ON_SUBD_RETURN_ERROR(false);
+    if (nullptr == m_original_vertex)
+      return ON_SUBD_RETURN_ERROR(false);
+    if (0 == m_original_vertex->m_face_count)
+      return true; // wire edge case
+
+    const unsigned short face_count = m_original_vertex->m_face_count;
+
+    if (face_count > m_original_vertex->m_face_capacity)
+      return ON_SUBD_RETURN_ERROR(false);
+    if (face_count > m_copied_vertex->m_face_capacity)
+      return ON_SUBD_RETURN_ERROR(false);
+
+    // marked faces remain attached to m_original_vertex
+    // unmarked faces are attached to m_copied_vertex 
+    m_original_vertex->m_face_count = 0;
+    for (unsigned short vfi = 0; vfi < face_count; vfi++)
+    {
+      const ON_SubDFace* f = m_original_vertex->m_faces[vfi];
+      if (nullptr == f)
+        continue;
+      ON_SubDVertex* v
+        = (f->Mark())
+        ? m_original_vertex
+        : m_copied_vertex;
+      v->m_faces[v->m_face_count] = f;
+      v->m_face_count++;
+    }
+    for (unsigned short vfi = m_original_vertex->m_face_count; vfi < face_count; ++vfi)
+      m_original_vertex->m_faces[vfi] = nullptr;
+
+    return true;
+  }
+
+
+  void UndoAttachUnmarkedFacesToCopiedVertex()
+  {
+    // This is used to resort the subd to a somewhat valid state after a critical error occurs
+    if (nullptr == m_copied_vertex)
+      return;
+    if (0 == m_copied_vertex->m_face_count)
+      return;
+    if (nullptr == m_original_vertex)
+      return;
+    // Move faces from m_copied_vertex back to m_original_vertex (which is where they started).
+    for (unsigned short vfi = 0; vfi < m_copied_vertex->m_face_count; vfi++)
+    {
+      const ON_SubDFace* f = m_copied_vertex->m_faces[vfi];
+      if (nullptr == f)
+        continue;
+      m_copied_vertex->m_faces[vfi] = nullptr;
+      if (m_original_vertex->m_face_count < m_original_vertex->m_face_capacity)
+      {
+        m_original_vertex->m_faces[m_original_vertex->m_face_count] = f;
+        m_original_vertex->m_face_count++;
       }
     }
-
-    return m_original_marked_edge_tag;
+    m_copied_vertex->m_face_count = 0;
   }
+   
+  bool AddExtrudedEdgeReference(
+    class ON_Internal_ExtrudedEdge* extruded_edge,
+    bool bSetExtrudedEdgeToo
+  );  
 
-  ON_SubD::EdgeTag UnmarkedEdgeTag(
-    const ON_SubDVertex* v0,
-    const ON_SubDVertex* v1
-  ) const
+  static int CompareInitialVertexId(
+    const ON_Internal_ExtrudedVertex* lhs,
+    const ON_Internal_ExtrudedVertex* rhs
+  );
+
+  void SetBothVertexTags(ON_SubD::VertexTag vertex_tag)
   {
-    // This tag is calculate before m_unmarked_edge is created.
-    if (
-      m_bExtrudedBoundaryEdge 
-      && m_bHasStationaryFace
-      && false == m_bHasMovedFace
-      && nullptr != v0
-      && nullptr != v1
-      )
+    if (nullptr != m_original_vertex)
+      m_original_vertex->m_vertex_tag = vertex_tag;
+    if (nullptr != m_copied_vertex)
+      m_copied_vertex->m_vertex_tag = vertex_tag;
+    if (nullptr != m_connecting_edge)
     {
-      return
-        (v0->IsDartOrCreaseOrCorner() && v1->IsDartOrCreaseOrCorner())
-        ? ON_SubD::EdgeTag::SmoothX
-        : ON_SubD::EdgeTag::Smooth;
+      switch (vertex_tag)
+      {
+      case ON_SubD::VertexTag::Unset:
+        m_connecting_edge->m_edge_tag = ON_SubD::EdgeTag::Unset;
+        break;
+      case ON_SubD::VertexTag::Smooth:
+        m_connecting_edge->m_edge_tag = ON_SubD::EdgeTag::Smooth;
+        break;
+      case ON_SubD::VertexTag::Crease:
+        m_connecting_edge->m_edge_tag = ON_SubD::EdgeTag::SmoothX;
+        break;
+      case ON_SubD::VertexTag::Corner:
+        m_connecting_edge->m_edge_tag = ON_SubD::EdgeTag::Crease;
+        break;
+      case ON_SubD::VertexTag::Dart:
+        m_connecting_edge->m_edge_tag = ON_SubD::EdgeTag::SmoothX;
+        break;
+      default:
+        m_connecting_edge->m_edge_tag = ON_SubD::EdgeTag::Unset;
+        break;
+      }
     }
-
-    return 
-      (ON_SubD::EdgeTag::Crease == m_original_marked_edge_tag) 
-      ? ON_SubD::EdgeTag::Crease 
-      : ON_SubD::EdgeTag::Unset
-      ;
   }
 
-  // the marked edge was in the original object and will be moved.
-  ON_SubDEdge* m_marked_edge = nullptr;
+  bool IsValidTopology(bool bCheckCopies) const;
 
-  // the unmarked edge replaces the marked edge at the original location.
-  ON_SubDEdge* m_unmarked_edge = nullptr;
-
-  // start at new vertex and end at original vertex;
-  ON_SubDEdge* m_new_side0 = nullptr;
-  ON_SubDEdge* m_new_side1 = nullptr;
-
-  ON_SubDFace* m_new_face = nullptr;
 };
 
-const ON_Internal_ExtrudedSide ON_Internal_ExtrudedSide::Unset ON_CLANG_CONSTRUCTOR_BUG_INIT(ON_Internal_ExtrudedSide);
+const ON_Internal_ExtrudedVertex ON_Internal_ExtrudedVertex::Unset ON_CLANG_CONSTRUCTOR_BUG_INIT(ON_Internal_ExtrudedVertex);
 
-int ON_Internal_ExtrudedVertexPair::CompareMarkedVertexId(
-  const ON_Internal_ExtrudedVertexPair* lhs,
-  const ON_Internal_ExtrudedVertexPair* rhs
+/*
+ON_Internal_ExtrudedVertex manages an edge that is extruded into a "side" face extrusion process.
+*/
+class ON_Internal_ExtrudedEdge
+{
+public:
+  ON_Internal_ExtrudedEdge() = default;
+  ~ON_Internal_ExtrudedEdge() = default;
+  ON_Internal_ExtrudedEdge(const ON_Internal_ExtrudedEdge&) = default;
+  ON_Internal_ExtrudedEdge& operator=(const ON_Internal_ExtrudedEdge&) = default;
+
+  static const ON_Internal_ExtrudedEdge Unset;
+
+  // tag m_original_edge had before the extrusion was performed.
+  ON_SubD::EdgeTag m_initial_edge_tag = ON_SubD::EdgeTag::Unset;
+
+  unsigned int m_initial_vertex_id[2] = {};
+
+  unsigned int m_initial_edge_face_count = 0;
+
+  // Used to sort the sides into groups of edges that are connected
+  unsigned m_side_group_id = 0;
+
+  // This is the edge in the original object. (This edge is moved).
+  ON_SubDEdge* m_original_edge = nullptr;
+
+  // This edge is new. It is a copy of the original edge and remains at the original location.
+  ON_SubDEdge* m_copied_edge = nullptr;
+
+  // m_extruded_vertex[0]->m_connecting_edge begins at m_copied_edge->m_vertex[0] and terminates at m_original_edge->m_vertex[0]
+  // m_extruded_vertex[1]->m_connecting_edge begins at m_copied_edge->m_vertex[1] and terminates at m_original_edge->m_vertex[1]
+  ON_Internal_ExtrudedVertex* m_extruded_vertex[2] = {};
+
+  // This is the new "side" quad with boundary made from the 4 edges above.
+  ON_SubDFace* m_new_face = nullptr;
+
+  static int CompareSideGroupId(const ON_Internal_ExtrudedEdge* lhs, const ON_Internal_ExtrudedEdge* rhs);
+
+  bool SetFromInitialEdge(
+    ON_SubDEdge* initial_edge
+  )
+  {
+    *this = ON_Internal_ExtrudedEdge::Unset;
+
+    if (nullptr == initial_edge)
+      return false;
+    if (nullptr == initial_edge->m_vertex[0] || nullptr == initial_edge->m_vertex[1] || initial_edge->m_vertex[0]->m_id == initial_edge->m_vertex[1]->m_id)
+      return false;
+
+    // validate edge / face topology information - corrupt information will cause great difficulties during the extrusion process
+    const ON_SubDFacePtr* fptr = initial_edge->m_face2;
+    for (unsigned short efi = 0; efi < initial_edge->m_face_count; ++efi, ++fptr)
+    {
+      if (2 == efi)
+      {
+        fptr = initial_edge->m_facex;
+        if (nullptr == fptr)
+          return false; // corrupt edge / face topology information
+        if (initial_edge->m_facex_capacity < initial_edge->m_face_count - 2)
+          return false; // corrupt edge / face topology information
+      }
+      const ON_SubDFace* f = ON_SUBD_FACE_POINTER(fptr->m_ptr);
+      if (nullptr == f || f->m_edge_count < 3)
+        return false; // corrupt edge / face topology information
+
+      bool bFoundInitialEdge = false;
+      const ON_SubDEdgePtr* eptr = f->m_edge4;
+      for (unsigned short fei = 0; fei < f->m_edge_count; ++fei, ++eptr)
+      {
+        if (4 == fei)
+        {
+          eptr = f->m_edgex;
+          if (nullptr == eptr)
+            return false; // corrupt edge / face topology information
+          if (f->m_edgex_capacity < f->m_edge_count - 4)
+            return false; // corrupt edge / face topology information
+        }
+        const ON_SubDEdge* e = ON_SUBD_EDGE_POINTER(eptr->m_ptr);
+        if (nullptr == e)
+          return false;
+        if (nullptr == e->m_vertex[0] || nullptr == e->m_vertex[1] || e->m_vertex[0]->m_id == e->m_vertex[1]->m_id)
+          return false;
+        if (e == initial_edge)
+        {
+          if (bFoundInitialEdge)
+            return false;
+          bFoundInitialEdge = true;
+          if (ON_SUBD_EDGE_DIRECTION(eptr->m_ptr) != ON_SUBD_FACE_DIRECTION(fptr->m_ptr))
+            return false;
+        }
+      }
+      if (false == bFoundInitialEdge)
+        return false;
+    }
+
+    m_initial_edge_tag = initial_edge->m_edge_tag;
+    m_initial_vertex_id[0] = initial_edge->m_vertex[0]->m_id;
+    m_initial_vertex_id[1] = initial_edge->m_vertex[1]->m_id;
+    m_initial_edge_face_count = initial_edge->m_face_count;
+    m_original_edge = initial_edge;
+
+    return true;
+  }
+
+  ON_SubDFace* ExtrudeFace(ON_SubD& subd);
+
+  const ON_Internal_ExtrudedVertex* ExtrudedVertex(ON__UINT_PTR evi) const
+  {
+    return (0 == evi || 1 == evi) ? m_extruded_vertex[evi] : nullptr;
+  }
+
+  /// Returns "side" edge created by extruding the reference vertex
+  ON_SubDEdge* ConnectingEdge(ON__UINT_PTR evi) const
+  {
+    const ON_Internal_ExtrudedVertex* extruded_vertex = ExtrudedVertex(evi);
+    return (nullptr != extruded_vertex) ? extruded_vertex->m_connecting_edge : nullptr;
+  }
+
+  ON_SubDEdge* CreateCopiedEdge(ON_SubD& subd)
+  {
+    if (nullptr != m_copied_edge)
+      return ON_SUBD_RETURN_ERROR(nullptr);
+    ON_SubDVertex* copied_vertex[2] = {};
+    for (unsigned evi = 0; evi < 2; evi++)
+    {
+      if (nullptr == m_extruded_vertex[evi])
+        return ON_SUBD_RETURN_ERROR(nullptr);
+      copied_vertex[evi] = m_extruded_vertex[evi]->m_copied_vertex;
+      if (nullptr == copied_vertex[evi])
+        return ON_SUBD_RETURN_ERROR(nullptr);
+    }
+    m_copied_edge = subd.AddEdge(ON_SubD::EdgeTag::Unset, copied_vertex[0], copied_vertex[1]);
+    if (nullptr == m_copied_edge)
+      return ON_SUBD_RETURN_ERROR(nullptr);
+    m_original_edge->m_edge_tag = ON_SubD::EdgeTag::Unset;
+    return m_copied_edge;
+  }
+
+  /// returns true if an unset vertex pair had its id set which means recursive id setting should continue.
+  bool SetSideGroupId(unsigned side_group_id)
+  {
+    if (m_side_group_id > 0)
+      return false;
+    bool rc = false;
+    m_side_group_id = side_group_id;
+    for (unsigned evi = 0; evi < 2; ++evi)
+    {
+      if (nullptr != m_extruded_vertex[evi] && 0 == m_extruded_vertex[evi]->m_side_group_id)
+      {
+        rc = true;
+        m_extruded_vertex[evi]->m_side_group_id = side_group_id;
+      }
+    }
+    return rc;
+  }
+
+  /// Returns true if an unset vertex pair had its id set which means recursive id setting should continue.
+  bool SetSideGroupIdFromVertexPairs()
+  {
+    if (m_side_group_id > 0)
+      return false;
+    for (unsigned evi = 0; evi < 2; ++evi)
+    {
+      if (nullptr != m_extruded_vertex[evi] && m_extruded_vertex[evi]->m_side_group_id > 0)
+        return SetSideGroupId(m_extruded_vertex[evi]->m_side_group_id);
+    }
+    return false;
+  }
+
+  bool InitialCrease() const
+  {
+    return (ON_SubD::EdgeTag::Crease == m_initial_edge_tag);
+  }
+
+  bool InitialCreaseWithCorner() const
+  {
+    if (ON_SubD::EdgeTag::Crease == m_initial_edge_tag)
+    {
+      for (unsigned evi = 0; evi < 2; ++evi)
+      {
+        if (nullptr != m_extruded_vertex[evi] && ON_SubD::VertexTag::Corner == m_extruded_vertex[evi]->m_initial_vertex_tag)
+          return true;
+      }
+    }
+    return false;
+  }
+
+  void SetBothEdgeTags(ON_SubD::EdgeTag edge_tag)
+  {
+    if (ON_SubD::EdgeTag::Crease == edge_tag)
+    {
+      if (nullptr != m_original_edge)
+        m_original_edge->m_edge_tag = ON_SubD::EdgeTag::Crease;
+      if (nullptr != m_copied_edge)
+        m_copied_edge->m_edge_tag = ON_SubD::EdgeTag::Crease;
+      for (unsigned evi = 0; evi < 2; ++evi)
+      {
+        if (nullptr != m_extruded_vertex[evi] && ON_SubD::EdgeTag::Unset == m_extruded_vertex[evi]->m_connecting_edge->m_edge_tag)
+        {
+          if (ON_SubD::VertexTag::Corner == m_extruded_vertex[evi]->m_initial_vertex_tag)
+            m_extruded_vertex[evi]->SetBothVertexTags(ON_SubD::VertexTag::Corner);
+          else if (nullptr != m_extruded_vertex[evi]->m_connecting_edge)
+            m_extruded_vertex[evi]->m_connecting_edge->m_edge_tag = ON_SubD::EdgeTag::Smooth;
+        }
+      }
+    }
+  }
+
+  bool IsValidTopology(
+    bool bCheckCopies
+  ) const;
+};
+
+static bool Internal_IsNotValidExtrudedTopology()
+{
+  return ON_SUBD_RETURN_ERROR(false);
+}
+
+bool ON_Internal_ExtrudedVertex::IsValidTopology(bool bCheckCopies) const
+{
+  if (nullptr == this->m_original_vertex)
+    return Internal_IsNotValidExtrudedTopology();
+  if (this->m_initial_vertex_id != this->m_original_vertex->m_id)
+    return Internal_IsNotValidExtrudedTopology();
+  if (this->m_extruded_edges_count == 0)
+    return Internal_IsNotValidExtrudedTopology();
+  if (bCheckCopies && nullptr == this->m_copied_vertex)
+    return Internal_IsNotValidExtrudedTopology();
+  for (unsigned vei = 0; vei < 2 && vei < this->m_extruded_edges_count; ++vei)
+  {
+    if (nullptr == this->m_extruded_edges[vei])
+      return Internal_IsNotValidExtrudedTopology();
+    const ON_Internal_ExtrudedEdge& extruded_edge = *this->m_extruded_edges[vei];
+    if (nullptr == extruded_edge.m_original_edge)
+      return Internal_IsNotValidExtrudedTopology();
+    const unsigned evi = (this->m_original_vertex == extruded_edge.m_original_edge->m_vertex[0]) ? 0 : 1;
+    if (this->m_initial_vertex_id != extruded_edge.m_initial_vertex_id[evi])
+      return Internal_IsNotValidExtrudedTopology();
+    for (unsigned k = 0; k < (bCheckCopies ? 2U : 1U); ++k)
+    {
+      const ON_SubDEdge* e = (0 == k) ? extruded_edge.m_original_edge : extruded_edge.m_copied_edge;
+      if (nullptr == e)
+        return Internal_IsNotValidExtrudedTopology();
+      if (e->m_vertex[0] == e->m_vertex[1])
+        return Internal_IsNotValidExtrudedTopology();
+      const ON_SubDVertex* v = (0 == k) ? this->m_original_vertex : this->m_copied_vertex;
+      if (nullptr == v)
+        return Internal_IsNotValidExtrudedTopology();
+      if (e->m_vertex[evi] != v)
+        return Internal_IsNotValidExtrudedTopology();
+    }
+    if (extruded_edge.m_side_group_id != this->m_side_group_id)
+      return Internal_IsNotValidExtrudedTopology();
+  }
+
+  return true;
+}
+
+bool ON_Internal_ExtrudedEdge::IsValidTopology(
+  bool bCheckCopies
+) const
+{
+  if (nullptr == m_original_edge)
+    return Internal_IsNotValidExtrudedTopology();
+
+  if (bCheckCopies && nullptr == m_copied_edge)
+    return Internal_IsNotValidExtrudedTopology();
+
+  for (unsigned evi = 0; evi < 2; ++evi)
+  {
+    if (nullptr == this->m_extruded_vertex[evi])
+      return Internal_IsNotValidExtrudedTopology();
+    const ON_Internal_ExtrudedVertex& extruded_vertex = *this->m_extruded_vertex[evi];
+    for (unsigned k = 0; k < (bCheckCopies ? 2U : 1U); ++k)
+    {
+      const ON_SubDEdge* e = (0 == k) ? this->m_original_edge : this->m_copied_edge;
+      if (nullptr == e)
+        return Internal_IsNotValidExtrudedTopology();
+      const ON_SubDVertex* v = (0 == k) ? extruded_vertex.m_original_vertex : extruded_vertex.m_copied_vertex;
+      if (nullptr == v)
+        return Internal_IsNotValidExtrudedTopology();
+      if (e->m_vertex[evi] != v)
+        return Internal_IsNotValidExtrudedTopology();
+      if (v->EdgeArrayIndex(e) >= v->m_edge_count)
+        return Internal_IsNotValidExtrudedTopology();
+    }
+    if (extruded_vertex.m_initial_vertex_id != extruded_vertex.m_original_vertex->m_id)
+      return Internal_IsNotValidExtrudedTopology();
+    if (extruded_vertex.m_initial_vertex_id != this->m_initial_vertex_id[evi])
+      return Internal_IsNotValidExtrudedTopology();
+    if (this->m_side_group_id != extruded_vertex.m_side_group_id)
+      return Internal_IsNotValidExtrudedTopology();
+  }
+  return true;
+}
+
+bool ON_Internal_ExtrudedVertex::AddExtrudedEdgeReference(
+  class ON_Internal_ExtrudedEdge* extruded_edge,
+  bool bSetExtrudedEdgeToo
 )
 {
-  const unsigned int lhs_id = lhs->m_marked_vertex->m_id;
-  const unsigned int rhs_id = rhs->m_marked_vertex->m_id;
+  if (nullptr == m_original_vertex || 0 == m_initial_vertex_id || m_initial_vertex_id != m_original_vertex->m_id)
+    return ON_SUBD_RETURN_ERROR(false);
+
+  if (nullptr == extruded_edge || nullptr == extruded_edge->m_original_edge )
+    return ON_SUBD_RETURN_ERROR(false);
+
+  unsigned int evi;
+
+  for (evi = 0; evi < 2; ++evi)
+  {
+    if (m_original_vertex == extruded_edge->m_original_edge->m_vertex[evi] && m_initial_vertex_id == extruded_edge->m_initial_vertex_id[evi])
+      break;
+  }
+  if (evi > 1)
+  {
+    // edge and vertex are not attached
+    return ON_SUBD_RETURN_ERROR(false);
+  }
+
+  if ( nullptr != extruded_edge->m_extruded_vertex[evi] && this != extruded_edge->m_extruded_vertex[evi])
+    return ON_SUBD_RETURN_ERROR(false);
+
+  switch (m_extruded_edges_count)
+  {
+  case 0:
+    m_extruded_edges[0] = extruded_edge;
+    m_extruded_edges_count = 1;
+    break;
+
+  case 1:
+    if (m_extruded_edges[0] != extruded_edge)
+    {
+      m_extruded_edges[1] = extruded_edge;
+      m_extruded_edges_count = 2;
+    }
+    break;
+
+  case 2:
+    if (m_extruded_edges[0] != extruded_edge && m_extruded_edges[1] != extruded_edge)
+      m_extruded_edges_count = 3; // rare case with 3 or more extruded edges sharing an extruded vertex
+    break;
+
+  case 3:
+    // do nothing this is vertex will be extruded into a non-manifold "side" connecting edge
+    break;
+
+  default:
+    // invalid value of m_extruded_edges_count
+    return ON_SUBD_RETURN_ERROR(false);
+    break;
+  }
+
+  if (bSetExtrudedEdgeToo && nullptr == extruded_edge->m_extruded_vertex[evi])
+    extruded_edge->m_extruded_vertex[evi] = this;
+
+  return true;
+}
+
+bool ON_Internal_ExtrudedVertex::SetConnectingEdgeTag()
+{
+  if (nullptr == m_original_vertex || 0 == m_initial_vertex_id)
+    return ON_SUBD_RETURN_ERROR(false); // to early
+
+  if (nullptr != m_copied_vertex || nullptr != m_connecting_edge)
+    return ON_SUBD_RETURN_ERROR(false); // to late
+
+  if (m_initial_vertex_id != m_original_vertex->m_id || m_initial_vertex_tag != m_original_vertex->m_vertex_tag || ON_SubD::EdgeTag::Unset != m_connecting_edge_tag)
+    return ON_SUBD_RETURN_ERROR(false); // corrupt information
+
+  if (m_extruded_edges_count != 2)
+  {
+    // simple case
+    m_connecting_edge_tag = ON_SubD::EdgeTag::Crease;
+    return true;
+  }
+
+  //if (ON_SubD::VertexTag::Corner == m_initial_vertex_tag)
+  //{
+  //  // simple case
+  //  m_connecting_edge_tag = ON_SubD::EdgeTag::Crease;
+  //  return true;
+  //}
+
+  if (ON_SubD::VertexTag::Crease != m_initial_vertex_tag && ON_SubD::VertexTag::Corner != m_initial_vertex_tag)
+    return true; // leaving m_connecting_edge_tag unset for anything else works best
+
+
+  bool bMovedCrease = false;
+  bool bStationaryCrease = false;
+
+  const ON_SubDEdge* extruded_edge[2] = {};
+  for (unsigned vei = 0; vei < 2; ++vei)
+  {
+    extruded_edge[vei] = (nullptr != m_extruded_edges[vei]) ? m_extruded_edges[vei]->m_original_edge : nullptr;
+    if (nullptr == extruded_edge[vei])
+      return ON_SUBD_RETURN_ERROR(false); // corrupt information
+    if (1 == extruded_edge[vei]->m_face_count)
+    {
+      if (extruded_edge[vei]->MarkedFaceCount() > 0)
+        bStationaryCrease = true; // the boundary (crease) will not move but the attached face does move
+      else
+      {
+        // the boundary (crease) will move but the attached face does not move
+        if (ON_SubD::VertexTag::Corner == m_initial_vertex_tag)
+        {
+          m_connecting_edge_tag = ON_SubD::EdgeTag::Crease;
+          return true;
+        }
+        bMovedCrease = true; 
+      }
+    }
+  }
+
+  // determine vertex topology and edge demographics
+  for (unsigned short vei = 0; vei < m_original_vertex->m_edge_count; ++vei)
+  {
+    const ON_SubDEdge* e = ON_SUBD_EDGE_POINTER(m_original_vertex->m_edges[vei].m_ptr);
+    if (nullptr == e || false == e->IsCrease() || e == extruded_edge[0] || e == extruded_edge[1])
+      continue;
+    if (e->MarkedFaceCount() > 0)
+      bMovedCrease = true;
+    else
+      bStationaryCrease = true;
+  }
+
+  // used the collected vertex topology and edge demographics to determine if connecting_edge_tag should be Crease
+  if (bMovedCrease && bStationaryCrease)
+    m_connecting_edge_tag = ON_SubD::EdgeTag::Crease;
+
+  return true;
+}
+
+
+int ON_Internal_ExtrudedEdge::CompareSideGroupId(const ON_Internal_ExtrudedEdge* lhs, const ON_Internal_ExtrudedEdge* rhs)
+{
+  const unsigned lhs_side_group_id = lhs->m_side_group_id;
+  const unsigned rhs_side_group_id = rhs->m_side_group_id;
+  if (lhs_side_group_id < rhs_side_group_id)
+    return -1;
+  if (lhs_side_group_id > rhs_side_group_id)
+    return 1;
+  return 0;
+}
+
+const ON_Internal_ExtrudedEdge ON_Internal_ExtrudedEdge::Unset ON_CLANG_CONSTRUCTOR_BUG_INIT(ON_Internal_ExtrudedEdge);
+
+int ON_Internal_ExtrudedVertex::CompareInitialVertexId(
+  const ON_Internal_ExtrudedVertex* lhs,
+  const ON_Internal_ExtrudedVertex* rhs
+)
+{
+  const unsigned int lhs_id = lhs->m_initial_vertex_id;
+  const unsigned int rhs_id = rhs->m_initial_vertex_id;
   if (lhs_id < rhs_id)
     return -1;
   if (lhs_id > rhs_id)
@@ -12211,36 +14202,14 @@ int ON_Internal_ExtrudedVertexPair::CompareMarkedVertexId(
   return 0;
 }
 
-static  ON_SubD::EdgeTag Internal_AdjustedEdgeTag(const ON_SubDEdge* edge)
-{
-  if (nullptr == edge || nullptr == edge->m_vertex[0] || nullptr == edge->m_vertex[1])
-    return ON_SubD::EdgeTag::Unset;
-
-
-  // adjust moved edge tag because vertex tags can change when they get moved.
-  const ON_SubD::VertexTag evtag[2] = { edge->m_vertex[0]->m_vertex_tag ,edge->m_vertex[1]->m_vertex_tag };
-  
-  if (ON_SubD::VertexTag::Unset == evtag[0] || ON_SubD::VertexTag::Unset == evtag[1])
-    return ON_SubD::EdgeTag::Unset;
-
-  if (ON_SubD::VertexTag::Smooth == evtag[0] || ON_SubD::VertexTag::Smooth == evtag[1])
-    return ON_SubD::EdgeTag::Smooth;
-  
-  const ON_SubD::EdgeTag etag = edge->m_edge_tag;
-  if (ON_SubD::EdgeTag::Smooth == etag || ON_SubD::EdgeTag::SmoothX == etag )
-    return ON_SubD::EdgeTag::SmoothX;
-
-  return etag;
-}
-
 static void Internal_SetEdgeVertices(
   ON_SubD& subd,
-  ON_Internal_ExtrudedVertexPair& vertex_pair
+  ON_Internal_ExtrudedVertex& extruded_vertex
   )
 {
   // marked edges use the marked vertex.
-  ON_SubDVertex* marked_vertex = vertex_pair.m_marked_vertex;
-  ON_SubDVertex* unmarked_vertex =  vertex_pair.m_unmarked_vertex;
+  ON_SubDVertex* marked_vertex = extruded_vertex.m_original_vertex;
+  ON_SubDVertex* unmarked_vertex =  extruded_vertex.m_copied_vertex;
   const unsigned int vertex_edge_count = marked_vertex->EdgeCount();
   unsigned int marked_edge_count = 0;
   unsigned int unmarked_edge_count = 0;
@@ -12251,7 +14220,7 @@ static void Internal_SetEdgeVertices(
     const ON_SubDEdge* e = eptr.Edge();
     if (nullptr == e)
       continue;
-    if (vertex_pair.m_new_side == e)
+    if (extruded_vertex.m_connecting_edge == e)
       new_edge_count++;
     else if (e->m_status.RuntimeMark())
       marked_edge_count++;
@@ -12265,9 +14234,7 @@ static void Internal_SetEdgeVertices(
   unmarked_edge_count += unmarked_vertex->m_edge_count;
 
   if ( unmarked_vertex->m_edge_capacity < (unmarked_edge_count+new_edge_count) )
-  {
     subd.GrowVertexEdgeArray(unmarked_vertex, unmarked_edge_count);    
-  }
 
   marked_vertex->m_edge_count = 0;
   for (unsigned int vei = 0; vei < vertex_edge_count; vei++)
@@ -12276,7 +14243,7 @@ static void Internal_SetEdgeVertices(
     ON_SubDEdge* e = eptr.Edge();
     if (nullptr == e)
       continue;
-    if (vertex_pair.m_new_side == e || e->m_status.RuntimeMark())
+    if (extruded_vertex.m_connecting_edge == e || e->m_status.RuntimeMark())
     {
       marked_vertex->m_edges[marked_vertex->m_edge_count] = eptr;
       marked_vertex->m_edge_count++;
@@ -12293,9 +14260,8 @@ static void Internal_SetEdgeVertices(
   }
 }
 
-static ON_SubDFace* Internal_AddNewFace(
-  ON_SubD& subd,
-  ON_Internal_ExtrudedSide& side
+ON_SubDFace* ON_Internal_ExtrudedEdge::ExtrudeFace(
+  ON_SubD& subd
 )
 {
   // All components that will be moved have the runtime mark set.
@@ -12307,8 +14273,8 @@ static ON_SubDFace* Internal_AddNewFace(
   
   // change edges of unmarked faces to use the new edge
   ON__UINT_PTR edir = 0;
-  ON_SubDEdge* marked_edge = side.m_marked_edge; // will be moved
-  ON_SubDEdge* unmarked_edge = side.m_unmarked_edge; // fixed
+  ON_SubDEdge* marked_edge = this->m_original_edge; // will be moved
+  ON_SubDEdge* unmarked_edge = this->m_copied_edge; // a copy of the original edge at the original location
   unsigned int marked_edge_face_count0 = marked_edge->m_face_count;
   ON_SubDFacePtr* marked_edge_fptr1 = marked_edge->m_face2;
   const ON_SubDFacePtr* marked_edge_fptr0 = marked_edge_fptr1;
@@ -12348,21 +14314,17 @@ static ON_SubDFace* Internal_AddNewFace(
   // When marked_edge is a manifold edge, face_count goes from 2 to 1.
   marked_edge->m_face_count = static_cast<unsigned short>(marked_edge_face_count1);
 
-  ON_SubDEdge* side0 = (0 == edir) ? side.m_new_side0 : side.m_new_side1;
-  ON_SubDEdge* side1 = (0 == edir) ? side.m_new_side1 : side.m_new_side0;
+  ON_SubDEdge* side0 = this->ConnectingEdge(edir);
+  ON_SubDEdge* side1 = this->ConnectingEdge(1 - edir);
   ON_SubDEdgePtr new_face_eptr[4];
-  new_face_eptr[0] = ON_SubDEdgePtr::Create(side.m_marked_edge, 1-edir);
+  new_face_eptr[0] = ON_SubDEdgePtr::Create(this->m_original_edge, 1-edir);
   new_face_eptr[1] = ON_SubDEdgePtr::Create(side0, 1);
-  new_face_eptr[2] = ON_SubDEdgePtr::Create(side.m_unmarked_edge, edir);
+  new_face_eptr[2] = ON_SubDEdgePtr::Create(this->m_copied_edge, edir);
   new_face_eptr[3] = ON_SubDEdgePtr::Create(side1, 0);
   
-  const ON_SubD::EdgeTag marked_edge_tag = side.MarkedEdgeTag();
-  if (marked_edge_tag != marked_edge->m_edge_tag)
-    marked_edge->m_edge_tag = marked_edge_tag;
+  this->m_new_face = subd.AddFace(new_face_eptr, 4);
 
-  side.m_new_face = subd.AddFace(new_face_eptr, 4);
-
-  if (nullptr != side.m_new_face)
+  if (nullptr != this->m_new_face)
   {
     // When isolated edges are extruded, we need to flip the face.
     // In all other cases, we don't.
@@ -12370,7 +14332,7 @@ static ON_SubDFace* Internal_AddNewFace(
     bool bFlipSet = false;
     for (unsigned int fei = 0; fei < 4; fei++)
     {
-      const ON_SubDEdgePtr eptr = side.m_new_face->m_edge4[fei];
+      const ON_SubDEdgePtr eptr = this->m_new_face->m_edge4[fei];
       const ON_SubDEdge* e = ON_SUBD_EDGE_POINTER(eptr.m_ptr);
       if (nullptr == e || e->m_face_count > 2)
       {
@@ -12387,13 +14349,13 @@ static ON_SubDFace* Internal_AddNewFace(
         bFlipSet = false;
         break;
       }
-      if (side.m_new_face != f[0] && side.m_new_face != f[1] )
+      if (this->m_new_face != f[0] && this->m_new_face != f[1] )
       {
         bFlipSet = false;
         break;
       }
       const ON__UINT_PTR fdir[2] = { ON_SUBD_FACE_DIRECTION(fptr[0].m_ptr), ON_SUBD_FACE_DIRECTION(fptr[1].m_ptr) };
-      if (fedir != fdir[(f[0] == side.m_new_face) ? 0 : 1])
+      if (fedir != fdir[(f[0] == this->m_new_face) ? 0 : 1])
       {
         bFlipSet = false;
         break;
@@ -12411,393 +14373,10 @@ static ON_SubDFace* Internal_AddNewFace(
       }
     }
     if (bFlip)
-      side.m_new_face->ReverseEdgeList();
+      this->m_new_face->ReverseEdgeList();
   }
 
-  return side.m_new_face;
-}
-
-static ON_SubD::EdgeTag Internal_ConnectingEdgeTagAtVertex(
-  bool bExtrudeBoundaries,
-  const ON_SubDVertex* v,
-  ON_SubD::VertexTag& moved_vertex_tag,
-  ON_SubD::VertexTag& stationary_vertex_tag
-)
-{
-  moved_vertex_tag = ON_SubD::VertexTag::Unset;
-  stationary_vertex_tag = ON_SubD::VertexTag::Unset;
-  if (ON_SubD::VertexTag::Crease != v->m_vertex_tag && ON_SubD::VertexTag::Dart != v->m_vertex_tag)
-  {
-    ON_SUBD_ERROR("This function requires a crease or dart vertex as input.");
-    return ON_SubD::EdgeTag::Unset;
-  }
-
-  const unsigned int vertex_edge_count = v->m_edge_count;
-
-  // total_count = number of edges currently attached to v that are creases
-  unsigned int total_count = 0;
-
-
-  ////////////////////////////////////////////////////////////////////////////////////////////////////
-  //
-  // stationary, moved_to_crease, moved_to_smooth, and split are mutually exclusive sitations.
-
-  // stationary_count = number of edges currently attached to v that are creases and remain in current locations
-  unsigned int stationary_count = 0;
-
-  // moved_to_crease_count = number of edges currently attached to v that are creases and move and remain creases
-  unsigned int moved_to_crease_count = 0; 
-
-  // moved_to_crease_count = number of edges currently attached to v that are creases and move and become smooth
-  unsigned int moved_to_smooth_count = 0; 
-
-  // split_count = number of edges currently attached to v that are creases and are between a moved and stationary face
-  unsigned int split_count = 0;
-
-  
-  ////////////////////////////////////////////////////////////////////////////////////////////////////
-  //
-  // bdry, interior, wire, nonman are mutually exclusive sitations.
-
-  // bdry_count = number of edges currently attached to v that are creases and have 1 face.
-  unsigned int bdry_count = 0;
-
-  // interior_count = number of edges currently attached to v that are creases and have 2 faces
-  unsigned int interior_count = 0;
-
-  // wire_count = number of edges currently attached to v that are creases and have 0 faces
-  unsigned int wire_count = 0;
-
-  // nonman_count = number of edges currently attached to v that are creases and have 3 or more faces
-  unsigned int nonman_count = 0;
-
-
-  ////////////////////////////////////////////////////////////////////////////////////////////////////
-  //
-  // tally up what is happening at each crease edge attached to vertex v
-  //
-  for (unsigned int vei = 0; vei < vertex_edge_count; vei++)
-  {
-    const ON_SubDEdge* e = ON_SUBD_EDGE_POINTER(v->m_edges[vei].m_ptr);
-    if (nullptr == e)
-      continue;
-
-    if (ON_SubD::EdgeTag::Crease != e->m_edge_tag)
-      continue;
-
-    const bool bBoundaryEdge = (1 == e->m_face_count) && (nullptr != e->m_face2[0].Face());
-    const bool bMovedBoundaryEdge = bBoundaryEdge && e->m_status.RuntimeMark();
-    //const bool bStationaryBoundaryEdge = bBoundaryEdge && false == e->m_status.RuntimeMark();
-
-    ++total_count;
-
-    if (0 == e->m_face_count)
-      ++wire_count;
-    else if (1 == e->m_face_count)
-      ++bdry_count;
-    else if (2 == e->m_face_count)
-      ++interior_count;
-    else if (2 == e->m_face_count)
-      ++nonman_count;
-
-    unsigned int moved_face_count = 0;
-    unsigned int stationary_face_count = 0;
-    for (unsigned short evi = 0; evi < e->m_face_count; evi++)
-    {
-      const ON_SubDFace* f = e->Face(evi);
-      if (nullptr == f)
-      {
-        ON_SUBD_ERROR("Edge has null face.");
-        return ON_SubD::EdgeTag::Unset;
-      }
-      if (f->m_status.RuntimeMark())
-        ++moved_face_count;
-      else
-        ++stationary_face_count;
-    }
-
-    if (moved_face_count > 0 && stationary_face_count > 0)
-    {
-      // This is edge is between a moved face and a stationary face.
-      // It will "split" into two edges
-      ++split_count; 
-    }
-    else if (moved_face_count > 0)
-    {
-      // This edge and all faced currently attached to it are moving.
-      if (bExtrudeBoundaries && bMovedBoundaryEdge)
-        ++moved_to_smooth_count;
-      else
-        ++moved_to_crease_count;
-    }
-    else if (stationary_face_count > 0)
-    {
-      // This edge is moving and all faced currently attached to it are stationary.
-      // A new face will be attached to this edge
-      if (bExtrudeBoundaries && bMovedBoundaryEdge)
-      {
-        // This boundary edge will move and a new face will be createed between it
-        // and the face the edge is currently attached to.
-        ++moved_to_crease_count; 
-      }
-      else
-        ++stationary_count; // this crease (interior or boundary) and its attached face or faces do not move
-    }
-  }
-
-  if (total_count != wire_count + split_count + moved_to_smooth_count + moved_to_crease_count + stationary_count)
-  {
-    ON_SUBD_ERROR("Bug in counting code above or invalid topology near this vertex.");
-    return ON_SubD::EdgeTag::Unset;
-  }
-
-  if (ON_SubD::VertexTag::Dart == v->m_vertex_tag)
-  {
-    if (
-      1 == total_count
-      && 1 == interior_count
-      && 0 == bdry_count 
-      && 0 == wire_count 
-      && 0 == nonman_count 
-      )
-    {
-      if (0 == split_count)
-      {
-        if (1 == moved_to_crease_count && 0 == moved_to_smooth_count && 0 == stationary_count)
-        {
-          // dart crease and both attached faces are moving
-          moved_vertex_tag = ON_SubD::VertexTag::Dart;
-          stationary_vertex_tag = ON_SubD::VertexTag::Smooth;
-          return ON_SubD::EdgeTag::Smooth;
-        }
-        else if (0 == moved_to_crease_count && 0 == moved_to_smooth_count && 1 == stationary_count)
-        {
-          // dart crease and both attached faces are stationary
-          moved_vertex_tag = ON_SubD::VertexTag::Smooth;
-          stationary_vertex_tag = ON_SubD::VertexTag::Dart;
-          return ON_SubD::EdgeTag::Smooth;
-        }
-      }
-      else if (1 == split_count)
-      {
-        // Along the dart crease, one attached face is moving and the other is stationary.
-        // The dart crease will get split into two darts and the new edge will be smooth.
-        moved_vertex_tag = ON_SubD::VertexTag::Dart;
-        stationary_vertex_tag = ON_SubD::VertexTag::Dart;
-        return ON_SubD::EdgeTag::SmoothX; // will X becomes Smooth on 1st subdivision
-      }
-    }
-    ON_SUBD_ERROR("Unexpected dart vertex edge tags - bug in counting code above or current tags or topology are not invalid.");
-    return ON_SubD::EdgeTag::Unset;
-  }
-
-
-  /////////////////////////////////////////////////////////////////////////////////////////////
-  //
-  // The rest of this function is for the case when ON_SubD::VertexTag::Crease == v->m_vertex_tag
-  //
-  if (1 == wire_count)
-  {
-    moved_vertex_tag = ON_SubD::VertexTag::Crease;
-    stationary_vertex_tag = ON_SubD::VertexTag::Crease;
-    return ON_SubD::EdgeTag::Crease;
-  }
-  if (2 == wire_count)
-  {
-    moved_vertex_tag = ON_SubD::VertexTag::Crease;
-    stationary_vertex_tag = ON_SubD::VertexTag::Crease;
-    return ON_SubD::EdgeTag::SmoothX; // will X becomes Smooth on 1st subdivision
-  }
-
-  if (0 != wire_count || 0 != nonman_count)
-  {
-    // If extrusions involving nonmanifold regions need to be supported, lots of changes are required.
-    ON_SUBD_ERROR("Currently, non-manifold cases are not supported.");
-    return ON_SubD::EdgeTag::Unset;
-  }
-
-  for(;;)
-  {
-    if ( 
-      ON_SubD::VertexTag::Crease == v->m_vertex_tag
-      && 2 == (split_count + moved_to_crease_count + moved_to_smooth_count + stationary_count) 
-      )
-    {
-      if (2 == interior_count && 0 == bdry_count)
-        break;
-      if (0 == interior_count && 2 == bdry_count)
-        break;
-    }
-    ON_SUBD_ERROR("Unexpected crease vertex edge tags - bug in counting code above or current tags or topology are not invalid.");
-    return ON_SubD::EdgeTag::Unset;
-  }
-
-  if (0 == interior_count && 2 == bdry_count)
-  {
-    // The vertex v is currently a boundary crease vertex and split_count always 0 in this case.
-    //
-    // Since 2 = split_count + stationary_count + moved_to_crease_count + moved_to_smooth_count,
-    // stationary_count = 0,1,2 is used as the next "case reduction" filter.
-
-    if (0 != split_count || 2 != (stationary_count + moved_to_crease_count + moved_to_smooth_count) )
-    {
-      ON_SUBD_ERROR("Bug in boundary crease case counting code above.");
-      return ON_SubD::EdgeTag::Unset;
-    }
-
-
-    if (0 == stationary_count)
-    {
-      // both attached crease edges are moving
-      // 3 possibilities (moved_to_crease_count,moved_to_smooth_count) = (2,0), (0,2), or (1,1)
-      if (2 == moved_to_crease_count )
-      {
-        moved_vertex_tag = ON_SubD::VertexTag::Crease;
-        stationary_vertex_tag = ON_SubD::VertexTag::Smooth;
-        return ON_SubD::EdgeTag::Smooth;
-      }
-
-      if (2 == moved_to_smooth_count )
-      {
-        // attached faces are moving and moved edges will be copied.
-        // The moved edges will convert from crease to smooth and the stationary copies will become creases.
-        // New faces will be created between the moved edge and the stationary copy.
-        moved_vertex_tag = ON_SubD::VertexTag::Smooth;
-        stationary_vertex_tag = ON_SubD::VertexTag::Crease;
-        return ON_SubD::EdgeTag::Smooth;
-      }
-
-      if ( 1 == moved_to_crease_count && 1 == moved_to_smooth_count )
-      {
-        // new edge runs from moved crease to crease that replaces moved to smooth edge
-        moved_vertex_tag = ON_SubD::VertexTag::Crease;
-        stationary_vertex_tag = ON_SubD::VertexTag::Crease;
-        return ON_SubD::EdgeTag::Crease;
-      }
-    }
-    else if (1 == stationary_count)
-    {
-      // 1 attached crease edge is moving and the other attached crease edge is stationary
-      // 2 possibilities (moved_to_crease_count,moved_to_smooth_count) = (1,0) or (0,1)
-      if (1 == moved_to_crease_count && 0 == moved_to_smooth_count)
-      {
-        // moved edge continues to be a boundary (and crease) edge.
-        // The new edge connecting the stationary crease and the moved edge is a crease.
-        moved_vertex_tag = ON_SubD::VertexTag::Crease;
-        stationary_vertex_tag = ON_SubD::VertexTag::Crease;
-        return ON_SubD::EdgeTag::Crease;
-      }
-      if (0 == moved_to_crease_count && 1 == moved_to_smooth_count)
-      {
-        // moved crease becomes interior smooth edge
-        // The new edge connecting the stationary crease and the moved edge is a crease.
-        moved_vertex_tag = ON_SubD::VertexTag::Smooth;
-        stationary_vertex_tag = ON_SubD::VertexTag::Crease;
-        return ON_SubD::EdgeTag::Smooth;
-      }
-    }
-    else if (2 == stationary_count)
-    {
-      // neither attached crease edge is moving
-      // 1 possibility (moved_to_crease_count,moved_to_smooth_count) = (0,0)
-      moved_vertex_tag = ON_SubD::VertexTag::Smooth;
-      stationary_vertex_tag = ON_SubD::VertexTag::Crease;
-      return ON_SubD::EdgeTag::Smooth;
-    }
-  }
-  else if (2 == interior_count && 0 == bdry_count)
-  {
-    // The vertex v is currently an interior crease vertex and moved_to_smooth_count always 0 in this case.
-    // (move_to_smooth_count>0 requires a boundary edge)
-    //
-    // Since 2 = split_count + stationary_count + moved_to_crease_count + moved_to_smooth_count,
-    // split_count = 0,1,2 is used as the next "case reduction" filter.
-
-    if (0 != moved_to_smooth_count || 2 != (split_count + stationary_count + moved_to_crease_count) )
-    {
-      ON_SUBD_ERROR("Bug in interior crease case counting code above.");
-      return ON_SubD::EdgeTag::Unset;
-    }
-    
-    if (0 == split_count)
-    {
-      // stationary_count can be 0, 1 or 2.
-      if (0 == stationary_count)
-      {
-        // both creases and all attached faces are moving
-        moved_vertex_tag = ON_SubD::VertexTag::Crease;
-        stationary_vertex_tag = ON_SubD::VertexTag::Smooth;
-        return ON_SubD::EdgeTag::Smooth;
-      }
-      else if (1 == stationary_count)
-      {
-        // TODO
-      }
-      else if (2 == stationary_count)
-      {
-        // both creases and all attached faces are stationary
-        moved_vertex_tag = ON_SubD::VertexTag::Smooth;
-        stationary_vertex_tag = ON_SubD::VertexTag::Crease;
-        return ON_SubD::EdgeTag::Smooth;
-      }
-    }
-    else if (1 == split_count)
-    {
-      // stationary_count can be 0 or 1
-      if (0 == stationary_count)
-      {
-        // 1 = moved_to_crease_count, 0 = moved_to_smooth_count.
-        moved_vertex_tag = ON_SubD::VertexTag::Dart;
-        stationary_vertex_tag = ON_SubD::VertexTag::Crease;
-        return ON_SubD::EdgeTag::SmoothX; // will X becomes Smooth on 1st subdivision
-      }
-      else if (1 == stationary_count)
-      {
-        // moved_to_crease_count = 0 and moved_to_smooth_count = 0
-        moved_vertex_tag = ON_SubD::VertexTag::Dart;
-        stationary_vertex_tag = ON_SubD::VertexTag::Crease;
-        return ON_SubD::EdgeTag::SmoothX; // will X becomes Smooth on 1st subdivision
-      }
-    }
-    else if (2 == split_count)
-    {
-      // stationary_count = 0, moved_to_crease_count = 0, and moved_to_smooth_count = 0
-      moved_vertex_tag = ON_SubD::VertexTag::Crease;
-      stationary_vertex_tag = ON_SubD::VertexTag::Crease;
-      return ON_SubD::EdgeTag::SmoothX; // will X becomes Smooth on 1st subdivision
-    }
-  }
-
-  ON_SUBD_ERROR("Unexpected crease vertex edge tags - bug in counting code above or current tags or topology are not invalid.");
-  return ON_SubD::EdgeTag::Unset;
-}
-
-static bool Internal_NonManifoldEdgeWillBeCreated( const ON_SubDVertex* v )
-{
-  if (nullptr == v || false == v->m_status.RuntimeMark())
-    return false;
-  v->m_status.ClearRuntimeMark();
-
-  const unsigned int vertex_edge_count = v->m_edge_count;
-  unsigned int boundary_count = 0;
-  for (unsigned int vei = 0; vei < vertex_edge_count; vei++)
-  {
-    const ON_SubDEdge* e = v->Edge(vei);
-    if (nullptr == e || 0 == e->m_face_count)
-      continue;
-    if (e->m_face_count > 2)
-      return true;
-    const ON_SubDFace* f = e->Face(0);
-    const bool b0 = (nullptr != f) ? f->m_status.RuntimeMark() : false;
-    f = (e->m_face_count > 1) ? e->Face(1) : nullptr;
-    const bool b1 = (nullptr != f) ? f->m_status.RuntimeMark() : false;
-    if (b0 == b1)
-      continue;
-    boundary_count++;
-    if (boundary_count > 2)
-      return true;
-  }
-  return false;
+  return this->m_new_face;
 }
 
 unsigned int ON_SubD::ExtrudeComponents(
@@ -12808,9 +14387,7 @@ unsigned int ON_SubD::ExtrudeComponents(
 {
   const bool bExtrudeBoundaries = true;
   const bool bPermitNonManifoldEdgeCreation = false;
-  const ON_SubD::EdgeTag original_edge_tag = ON_SubD::EdgeTag::Unset;
-  const ON_SubD::EdgeTag moved_edge_tag = ON_SubD::EdgeTag::Unset;
-  return ExtrudeComponents(xform, cptr_list, cptr_count, bExtrudeBoundaries, bPermitNonManifoldEdgeCreation, original_edge_tag, moved_edge_tag);
+  return ExtrudeComponents(xform, cptr_list, cptr_count, bExtrudeBoundaries, bPermitNonManifoldEdgeCreation);
 }
 
 unsigned int ON_SubD::ExtrudeComponents(
@@ -12818,9 +14395,7 @@ unsigned int ON_SubD::ExtrudeComponents(
   const ON_SubDComponentPtr* cptr_list,
   size_t cptr_count,
   bool bExtrudeBoundaries,
-  bool bPermitNonManifoldEdgeCreation,
-  ON_SubD::EdgeTag original_edge_tag,
-  ON_SubD::EdgeTag moved_edge_tag
+  bool bPermitNonManifoldEdgeCreation
 )
 {
   if (nullptr == cptr_list || cptr_count <= 0)
@@ -12830,9 +14405,7 @@ unsigned int ON_SubD::ExtrudeComponents(
     cptr_list,
     cptr_count,
     bExtrudeBoundaries,
-    bPermitNonManifoldEdgeCreation,
-    original_edge_tag,
-    moved_edge_tag
+    bPermitNonManifoldEdgeCreation
     );
 }
 
@@ -12847,9 +14420,71 @@ unsigned int ON_SubD::Extrude(const ON_Xform & xform)
     nullptr,
     0,
     bExtrudeBoundaries,
-    bPermitNonManifoldEdgeCreation,
-    ON_SubD::EdgeTag::Unset, ON_SubD::EdgeTag::Unset
+    bPermitNonManifoldEdgeCreation
     );
+}
+
+static bool Internal_SetSideGroupIds(ON_SimpleArray<ON_Internal_ExtrudedEdge>& new_sides)
+{
+  const unsigned count = new_sides.UnsignedCount();
+  if (count <= 0)
+    return false;
+  unsigned side_group_id = 1;
+  for (unsigned int i = 0; i < count; ++i)
+  {
+    if (false == new_sides[i].SetSideGroupId(side_group_id))
+      continue;
+    unsigned j1 = i + 1;
+    while (j1 > 0)
+    {
+      unsigned j0 = j1; 
+      j1 = 0;
+      for (unsigned j = j0; j < count; ++j)
+      {
+        if (new_sides[j].SetSideGroupIdFromVertexPairs() && 0 == j1)
+          j1 = j + 1;
+      }
+    }
+    ++side_group_id;
+  }
+
+  if (side_group_id <= 1)
+    return false;
+
+  if (side_group_id > 2)
+    new_sides.QuickSort(ON_Internal_ExtrudedEdge::CompareSideGroupId);
+
+  return true;
+}
+
+
+static bool Internal_DebugValdateExtrudedTopology(
+  bool bCheckCopies,
+  const ON_SimpleArray<ON_Internal_ExtrudedEdge>& extruded_edges,
+  const ON_SimpleArray<ON_Internal_ExtrudedVertex>& extruded_vertices
+)
+{
+  const unsigned edge_count = extruded_edges.UnsignedCount();
+  const unsigned vertex_count = extruded_vertices.UnsignedCount();
+
+  for (unsigned ei = 0; ei < edge_count; ++ei)
+  {
+    const ON_Internal_ExtrudedEdge& extruded_edge = extruded_edges[ei];
+    if (false == extruded_edge.IsValidTopology(bCheckCopies))
+      return false;
+  }
+
+  for (unsigned vi = 0; vi < vertex_count; ++vi)
+  {
+    const ON_Internal_ExtrudedVertex& extruded_vertex = extruded_vertices[vi];
+    if (false == extruded_vertex.IsValidTopology(bCheckCopies))
+      return false;
+  }
+
+  if (vertex_count < edge_count)
+    return Internal_IsNotValidExtrudedTopology();
+
+  return true;
 }
 
 unsigned int ON_SubD::Internal_ExtrudeComponents(
@@ -12857,9 +14492,7 @@ unsigned int ON_SubD::Internal_ExtrudeComponents(
   const ON_SubDComponentPtr* cptr_list,
   size_t cptr_count,
   bool bExtrudeBoundaries,
-  bool bPermitNonManifoldEdgeCreation,
-  ON_SubD::EdgeTag original_edge_tag,
-  ON_SubD::EdgeTag moved_edge_tag
+  bool bPermitNonManifoldEdgeCreation
 )
 {
   const bool bHaveCptrList = (cptr_count > 0 && nullptr != cptr_list);
@@ -12878,20 +14511,13 @@ unsigned int ON_SubD::Internal_ExtrudeComponents(
     || (false == bHaveCptrList && false == bExtrudeAll)
     )
     return 0;
-
-  // The extrusion is initially calculated as if bot original_edge_tag and moved_edge_tag
-  // are Unset. A post process (will be added later to) sets the tags as specified
-  if (ON_SubD::EdgeTag::Crease != original_edge_tag && ON_SubD::EdgeTag::Smooth != original_edge_tag)
-    original_edge_tag = ON_SubD::EdgeTag::Unset;
-
-  if (ON_SubD::EdgeTag::Crease != moved_edge_tag && ON_SubD::EdgeTag::Smooth != moved_edge_tag)
-    moved_edge_tag = ON_SubD::EdgeTag::Unset;
   
   ON_SubDComponentMarksClearAndRestore mark_guard(*this);
 
-  // Marks very vertex touching a component in the cptr_list.
-  // Skips applying the transform because it is the identity.
-  
+  // Marks every face in cptr_list[].
+  // Marks every edge attached to a marked face.
+  // Marks every subd boundary edge in the cptr_list[].
+  // Marks every vertex touching a marked edge or marked face.
   unsigned int list_vertex_count = 0;
   unsigned int list_edge_count = 0;
   unsigned int list_face_count = 0;
@@ -12901,352 +14527,356 @@ unsigned int ON_SubD::Internal_ExtrudeComponents(
     bExtrudeBoundaries,
     list_vertex_count, list_edge_count, list_face_count
   );
-  
-  unsigned int moved_face_count = 0; // moved face count
-  unsigned int new_face_count = 0; // number of new faces on moved boundary
-  for (;;)
+  if (0 == marked_vertex_count)
+    return 0;
+
+  // Set moved_faces[] = list of faces that will move.
+  ON_SimpleArray<const ON_SubDFace*> moved_faces(list_face_count + 128);
+  ON_SubDFaceIterator fit(*this);
+  for (const ON_SubDFace* f = fit.FirstFace(); nullptr != f; f = fit.NextFace())
   {
-    if (0 == marked_vertex_count)
-      break;
+    const unsigned int face_vertex_count = f->m_edge_count;
+    if (face_vertex_count < 3 || false == f->m_status.RuntimeMark())
+      continue;
+    moved_faces.Append(f);
+  }
+  const unsigned int moved_face_count = moved_faces.UnsignedCount();
 
-    // Set moved_faces[] = list of faces that will move.
-    ON_SimpleArray<const ON_SubDFace*> moved_faces(list_face_count + 128);
-    ON_SubDFaceIterator fit(*this);
-    for (const ON_SubDFace* f = fit.FirstFace(); nullptr != f; f = fit.NextFace())
+  ON_SimpleArray<ON_Internal_ExtrudedEdge> extruded_edges(64);
+  ON_SubDEdgeIterator eit(*this);
+  for (const ON_SubDEdge* e = eit.FirstEdge(); nullptr != e; e = eit.NextEdge())
+  {
+    const bool bMarkedEdge = e->Mark();
+    e->ClearMark();
+    e->ClearMarkBits();
+    if (nullptr == e->m_vertex[0] || nullptr == e->m_vertex[1])
+      continue;
+
+    const unsigned int edge_face_count = e->m_face_count;
+
+    // marked wire edges and marked boundary edges get extruded whenever bExtrudeBoundaries is true.
+    bool bExtrudeEdge = bMarkedEdge && (0 == edge_face_count || (1 == edge_face_count && bExtrudeBoundaries));
+
+    bool bAttachedToMarkedFace = false;
+    bool bAttachedToUnmarkedFace = false;
+    for (unsigned int efi = 0; efi < edge_face_count; efi++)
     {
-      const unsigned int face_vertex_count = f->m_edge_count;
-      if (face_vertex_count < 3 || false == f->m_status.RuntimeMark())
+      const ON_SubDFace* f = e->Face(efi);
+      if (nullptr == f)
         continue;
-      moved_faces.Append(f);
-    }
+      if (f->Mark())
+        bAttachedToMarkedFace = true; // f is in the subset of faces that will be moved.
+      else
+        bAttachedToUnmarkedFace = true; // f is in the subset of faces that are stationary (will not be moved).
 
-    moved_face_count = moved_faces.UnsignedCount();
-
-    // Mark edges on the boundary of the moved subset.
-
-    // Set moved_edges[] = list of edges that are either
-    // 1) between a moved face and a stationary face
-    // 2) are a boundary edge to be extruded.
-    ON_SimpleArray<const ON_SubDEdge*> moved_edges(list_edge_count + list_vertex_count);
-
-    ON_SimpleArray<ON_Internal_ExtrudedSide> new_sides(64);
-    ON_SubDEdgeIterator eit(*this);
-    for (const ON_SubDEdge* e = eit.FirstEdge(); nullptr != e; e = eit.NextEdge())
-    {
-      const bool bExtrudedBoundaryEdge
-        = bExtrudeBoundaries
-        && e->m_status.RuntimeMark()
-        && 1 == e->m_face_count
-        && ON_SubD::EdgeTag::Crease == e->m_edge_tag
-        ;
-      bool bExtrudeEdge = bExtrudedBoundaryEdge;
-
-      e->m_status.ClearRuntimeMark();
-
-      bool bMarkedFace = false;
-      bool bUnmarkedFace = false;
-      const unsigned int edge_face_count = e->m_face_count;
-      for (unsigned int efi = 0; efi < edge_face_count; efi++)
+      if (bAttachedToMarkedFace && bAttachedToUnmarkedFace)
       {
-        const ON_SubDFace* f = e->Face(efi);
-        if (nullptr == f)
-          continue;
-        if (f->m_status.RuntimeMark())
-          bMarkedFace = true; // f is in the subset of moved faces.
-        else
-          bUnmarkedFace = true; // f is in the subset of stationary faces.
-
-        if (bMarkedFace && bUnmarkedFace)
-        {
-          // e is on the boundary between the subset of moved faces and stationary faces.
-          bExtrudeEdge = true;
-          break;
-        }
-      }
-            
-      if (bExtrudeEdge)
-      {
-        if (false == bMarkedFace)
-          moved_edges.Append(e); // e is not part of a moved face's boundary
-        e->m_status.SetRuntimeMark();
-        ON_Internal_ExtrudedSide& newside = new_sides.AppendNew();
-        newside.m_marked_edge = const_cast<ON_SubDEdge*>(e);
-        newside.m_bExtrudedBoundaryEdge = bExtrudedBoundaryEdge;
-        newside.m_bHasMovedFace = bMarkedFace;
-        newside.m_bHasStationaryFace = bUnmarkedFace;
-        newside.m_original_marked_edge_tag = e->m_edge_tag;
+        // e is on the boundary between the subset of moved faces and stationary faces
+        // and will be extruded into a face.
+        bExtrudeEdge = true;
+        break;
       }
     }
 
-    new_face_count = new_sides.UnsignedCount();
-
-    if (0 == new_face_count)
+    if (bExtrudeEdge)
     {
-      // no new faces will be made
-      if (moved_face_count > 0)
+      ON_Internal_ExtrudedEdge& extruded_edge = extruded_edges.AppendNew();
+      if (false == extruded_edge.SetFromInitialEdge(const_cast<ON_SubDEdge*>(e)))
       {
-        // Every face is moving 
-        Transform(xform);
+        ON_SUBD_ERROR("null e or vertex pointers");
+        return 0;
       }
-      break;
+
+      // Marking e here indicates e is an extruded edge.
+      // ON_Internal_ExtrudedVertex.SetFromInitialVertex() assumes marked edges are extruded edges.
+      e->SetMark();
+    }
+  }
+
+  const unsigned int extruded_edge_count = extruded_edges.UnsignedCount();
+  
+  if (0 == extruded_edge_count)
+  {
+    // no new faces will be made
+    if (moved_face_count > 0)
+    {
+      // Every face is moving 
+      Transform(xform);
+      return FaceCount();
+    }
+    return 0;
+  }
+
+  // Mark edges on the boundary of the moved subset.
+  // clear vertex  marks.
+  this->ClearVertexMarks();
+  this->ClearVertexMarkBits();
+
+  // build a list extruded_vertices[] of vertices that will be extruded into "side" edges
+  ON_SimpleArray<ON_Internal_ExtrudedVertex> extruded_vertices(extruded_edge_count + 8);
+  for (unsigned int i = 0; i < extruded_edge_count; i++)
+  {
+    ON_Internal_ExtrudedEdge& extruded_edge = extruded_edges[i];
+    const ON_SubDEdge* e = extruded_edge.m_original_edge;
+    if (nullptr == e)
+    {
+      ON_SUBD_ERROR("Should never be the case.");
+      return 0;
+    }
+    for (unsigned int evi = 0; evi < 2; evi++)
+    {
+      ON_SubDVertex* v = const_cast<ON_SubDVertex*>(e->m_vertex[evi]);
+      if (v->Mark())
+        continue; // this vertex has already been added to extruded_vertices[]
+
+      // Mark this vertex to indicate it will be extruded into a "side" edge.
+      v->SetMark();
+
+      ON_Internal_ExtrudedVertex& extruded_vertex = extruded_vertices.AppendNew();
+      if (false == extruded_vertex.SetFromInitialVertex(v))
+      {
+        ON_SUBD_ERROR("Should never be the case.");
+        return 0;
+      }
+
+      // Partially setting the topology connections here reduces the number of binary searches by about half.
+      // The scecond paramter is false because the sorting of extruded_vertices[] will change the memory
+      // location where extruded_vertex is stored.
+      if (false == extruded_vertex.AddExtrudedEdgeReference(&extruded_edge, false))
+        return 0;
+    }
+  }
+
+  // sort vertex pairs so they can be located by the original vertex id.
+  extruded_vertices.QuickSort(ON_Internal_ExtrudedVertex::CompareInitialVertexId);
+
+  // After sorting but before searching, set extruded_edge.m_extruded_vertex[] pointer
+  // for the extruded_edge used to generate the extruded_vertex in the for() loop
+  // immediately before the sorting of extruded_vertices[].
+  // This reduces the number of binary searches by about half.
+  for (unsigned int i = 0; i < extruded_vertices.UnsignedCount(); i++)
+  {
+    ON_Internal_ExtrudedVertex& extruded_vertex = extruded_vertices[i];
+    if (
+      extruded_vertex.m_initial_vertex_id > 0
+      && 1 == extruded_vertex.m_extruded_edges_count
+      && nullptr != extruded_vertex.m_extruded_edges[0]
+      )
+    {
+      if (extruded_vertex.AddExtrudedEdgeReference(extruded_vertex.m_extruded_edges[0], true))
+        continue;
     }
 
-    if (false == bPermitNonManifoldEdgeCreation)
+    ON_SUBD_ERROR("bug introduced in code above since Feb 2020");
+    return 0;
+  }
+
+  // Use the sorted extruded_vertices[] array and initial vertex ids to
+  // finish set the topology connections between extruded_vertices[] and extruded_edges[]
+  ON_Internal_ExtrudedVertex bsearch_key;
+  for (unsigned int i = 0; i < extruded_edges.UnsignedCount(); i++)
+  {
+    ON_Internal_ExtrudedEdge& extruded_edge = extruded_edges[i];
+    for (unsigned int evi = 0; evi < 2; evi++)
     {
-      bool bNonManifoldEdgeWillBeCreated = false;
-      for (unsigned int fi = 0; fi < moved_face_count; fi++)
+      if (nullptr != extruded_edge.m_extruded_vertex[evi])
+        continue; // this topology connection was set above and we can skip the binary search step
+
+      // Use a binary search to find the element of extruded_vertices[] that corresponds to extruded_edge.m_original_edge->m_vertex[evi].
+      bsearch_key.m_initial_vertex_id = extruded_edge.m_initial_vertex_id[evi];
+      const int i0 = extruded_vertices.BinarySearch(&bsearch_key, ON_Internal_ExtrudedVertex::CompareInitialVertexId);
+      if (i0 < 0)
       {
-        const ON_SubDFace* f = moved_faces[fi];
-        const unsigned int face_vertex_count = f->m_edge_count;
-        for (unsigned int fvi = 0; fvi < face_vertex_count; fvi++)
-        {
-          bNonManifoldEdgeWillBeCreated = Internal_NonManifoldEdgeWillBeCreated(f->Vertex(fvi));
-          if (bNonManifoldEdgeWillBeCreated)
-            break;
-        }
-        if (bNonManifoldEdgeWillBeCreated)
-          break;
+        ON_SUBD_ERROR("Should never be the case.");
+        return 0;
       }
-
-      if (bNonManifoldEdgeWillBeCreated)
-        break; // not allowd to create non-manifold edges
-
-      for (unsigned int ei = 0; ei < moved_edges.UnsignedCount(); ei++)
-      {
-        const ON_SubDEdge* e = moved_edges[ei];
-        for (unsigned int evi = 0; evi < 2; evi++)
-        {
-          bNonManifoldEdgeWillBeCreated = Internal_NonManifoldEdgeWillBeCreated(e->m_vertex[evi]);
-          if (bNonManifoldEdgeWillBeCreated)
-            break;
-        }
-        if (bNonManifoldEdgeWillBeCreated)
-          break;
-      }
-
-      if (bNonManifoldEdgeWillBeCreated)
-        break; // not allowd to create non-manifold edges
+      if (false == extruded_vertices[i0].AddExtrudedEdgeReference(&extruded_edge, true))
+        return 0;
     }
+  }
 
-    // clear vertex  marks.
-    ClearComponentMarks(true, false, false, nullptr);    
-
-    // Duplicate vertices that are on an edge between a marked and unmarked face
-    // or a moved boundary edge
-    ON_SimpleArray<ON_Internal_ExtrudedVertexPair> vertex_pairs(new_face_count+8);
-    for (unsigned int i = 0; i < new_face_count; i++)
+  if (false == bPermitNonManifoldEdgeCreation)
+  {
+    for (unsigned int i = 0; i < extruded_vertices.UnsignedCount(); i++)
     {
-      const ON_SubDEdge* e = new_sides[i].m_marked_edge;
+      // 3 or more "side" faces will be attached to the edge made by extruding the vertex.
+      // Thus, this edge will be a nonmanifold edge.
+      if (extruded_vertices[i].m_extruded_edges_count >= 3)
+        return 0;
+    }
+  }
+
+  if (false == Internal_DebugValdateExtrudedTopology(false, extruded_edges, extruded_vertices))
+    return 0;
+
+  // Need to set some tag information that is used when we created the extruded edges and faces
+  // before modifications are made to this subd.
+  for (unsigned int i = 0; i < extruded_vertices.UnsignedCount(); ++i)
+    extruded_vertices[i].SetConnectingEdgeTag();
+
+  // Extrude vertices into side edges - creates new vertices and connecting edges.
+  for (unsigned int i = 0; i < extruded_vertices.UnsignedCount(); ++i)
+  {
+    if (false == extruded_vertices[i].ExtrudeVertex(*this,xform))
+      return 0;
+  }
+
+  // Create "side" face edge that will be opposite the original edge.
+  for (unsigned int i = 0; i < extruded_edges.UnsignedCount(); ++i)
+  {
+    if (nullptr == extruded_edges[i].CreateCopiedEdge(*this))
+      return 0;
+  }
+
+  if (false == Internal_DebugValdateExtrudedTopology(true, extruded_edges, extruded_vertices))
+    return 0;
+
+  // At this point moved_faces[] = set of marked faces.
+  // Efficiency determines whither the face mark or the moved_faces[] array 
+  // is used to decide if a face is moved or stationary.
+  for (unsigned int i = 0; i < extruded_vertices.UnsignedCount(); ++i)
+  {
+    // Attach unmarked faces (stationary) to m_copied_vertex.
+    // Leave the marked faces (transformed) attached to m_original_vertex.
+    if (false == extruded_vertices[i].AttachUnmarkedFacesToCopiedVertex())
+    {
+      for (unsigned j = 0; j < i; ++j)
+        extruded_vertices[i].UndoAttachUnmarkedFacesToCopiedVertex();
+      return 0;
+    }
+  }
+
+  // From this point on, we don't bail out, we just press on doing the best that can be done.
+
+  // Mark everything a moved face touches
+  // including interior edges and vertices.
+  // Transform any vertices that are not already marked.
+  // (The vertices in extruded_vertices[] are currently marked and have already been transformed.)
+  for (unsigned int i = 0; i < moved_face_count; i++)
+  {
+    const ON_SubDFace* f = moved_faces[i];
+    const unsigned int face_edge_count = f->m_edge_count;
+    for (unsigned int fei = 0; fei < face_edge_count; ++fei)
+    {
+      const ON_SubDEdge* e = f->Edge(fei);
+      if (nullptr == e)
+        continue;
+      e->SetMark();
       for (unsigned int evi = 0; evi < 2; evi++)
       {
         ON_SubDVertex* v = const_cast<ON_SubDVertex*>(e->m_vertex[evi]);
+        if (nullptr != v && false == v->Mark())
+        {
+          v->Transform(false, xform);
+          v->SetMark();
+        }
+      }
+    }
+  }
+
+  // For the original boundary vertrex, move unmarked edges to use the new vertex.
+  for (unsigned int i = 0; i < extruded_vertices.UnsignedCount(); i++)
+    Internal_SetEdgeVertices(*this, extruded_vertices[i]);
+
+  // extrude edges into new "side" faces.
+  for (unsigned int i = 0; i < extruded_edge_count; i++)
+    extruded_edges[i].ExtrudeFace(*this);
+
+  // remove cached subdivision calculations
+  ClearEvaluationCache();
+
+  // Set tags that are clearly determined by the extrusion.
+  if ( Internal_SetSideGroupIds(extruded_edges))
+  {
+    const unsigned count = extruded_edges.UnsignedCount();
+    unsigned i1 = 0;
+    for (unsigned i0 = 0; i0 < count; i0 = (i1 > i0) ? i1 : (i0 + 1))
+    {
+      const unsigned side_group_id = extruded_edges[i0].m_side_group_id;
+      unsigned crease_count = 0;
+      unsigned interior_crease_count = 0;
+      unsigned corner_count = 0;
+      for (i1 = i0; i1 < count && side_group_id == extruded_edges[i1].m_side_group_id; ++i1)
+      {
+        ON_Internal_ExtrudedEdge& extruded_edge = extruded_edges[i1];
+        if (nullptr != extruded_edge.m_original_edge && 2 != extruded_edge.m_original_edge->m_face_count)
+        {
+          extruded_edge.m_original_edge->m_edge_tag = ON_SubD::EdgeTag::Crease;
+        }
+        if (nullptr != extruded_edge.m_copied_edge)
+        {
+          if (
+            2 != extruded_edge.m_copied_edge->m_face_count
+            || 
+            (2 == extruded_edge.m_initial_edge_face_count && ON_SubD::EdgeTag::Crease == extruded_edge.m_initial_edge_tag)
+            )
+            extruded_edge.m_copied_edge->m_edge_tag = ON_SubD::EdgeTag::Crease;
+        }
+        if (extruded_edge.InitialCrease())
+        {
+          ++crease_count;
+          if (2 == extruded_edge.m_initial_edge_face_count)
+            ++interior_crease_count;
+          if (extruded_edge.InitialCreaseWithCorner())
+          {
+            ++corner_count;
+            for (unsigned k = 0; k < 2; ++k)
+            {
+              ON_SubDEdge* e = (0 == k) ? extruded_edge.m_original_edge : extruded_edge.m_copied_edge;
+              if (2 != e->m_face_count)
+              {
+                e->m_edge_tag = ON_SubD::EdgeTag::Crease;
+                for (unsigned evi = 0; evi < 2; ++evi)
+                {
+                  ON_Internal_ExtrudedVertex* extruded_vertex = extruded_edge.m_extruded_vertex[evi];
+                  if (ON_SubD::VertexTag::Corner == extruded_vertex->m_initial_vertex_tag)
+                  {
+                    ON_SubDVertex* v = (0 == k) ? extruded_vertex->m_original_vertex : extruded_vertex->m_copied_vertex;
+                    v->m_vertex_tag = ON_SubD::VertexTag::Corner;
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+      if (
+        (crease_count == (i1 - i0))
+        && 
+        (corner_count > 0 || crease_count == interior_crease_count)
+        )
+      {
+        for (unsigned i = i0; i < i1; ++i)
+          extruded_edges[i].SetBothEdgeTags(ON_SubD::EdgeTag::Crease);
+      }
+    }
+  }
+
+  for (unsigned i = 0; i < extruded_vertices.UnsignedCount(); ++i)
+  {
+    ON_Internal_ExtrudedVertex& pair = extruded_vertices[i];
+    if (ON_SubD::VertexTag::Corner == pair.m_initial_vertex_tag)
+    {
+      for (unsigned vdex = 0; vdex < 2; ++vdex)
+      {
+        ON_SubDVertex* v = (0 == vdex) ? pair.m_original_vertex : pair.m_copied_vertex;
         if (nullptr == v)
           continue;
-        if (v->m_status.RuntimeMark())
-          continue;
-
-        // Mark this vertex. It will eventually get moved
-        v->m_status.SetRuntimeMark();
-        ON_Internal_ExtrudedVertexPair& vpair = vertex_pairs.AppendNew();
-        vpair.m_marked_vertex = v;
-
-        ON_SubD::VertexTag moved_vertex_tag = ON_SubD::VertexTag::Unset; // the original vertex gets moved
-        ON_SubD::VertexTag stationary_vertex_tag = ON_SubD::VertexTag::Unset; // (this one get allocated)
-        ON_SubD::EdgeTag connecting_edge_tag = ON_SubD::EdgeTag::Unset; // from stationary to moved vertex
-        switch (v->m_vertex_tag)
-        {
-        case ON_SubD::VertexTag::Dart:
-          connecting_edge_tag = Internal_ConnectingEdgeTagAtVertex(bExtrudeBoundaries, v, moved_vertex_tag, stationary_vertex_tag);
-          break;
-        case ON_SubD::VertexTag::Crease:
-          connecting_edge_tag = Internal_ConnectingEdgeTagAtVertex(bExtrudeBoundaries, v, moved_vertex_tag, stationary_vertex_tag);
-          break;
-        case ON_SubD::VertexTag::Corner:
-          moved_vertex_tag = v->m_vertex_tag;
-          stationary_vertex_tag = v->m_vertex_tag;
-          connecting_edge_tag = ON_SubD::EdgeTag::Crease;
-          break;
-        case ON_SubD::VertexTag::Smooth:
-          moved_vertex_tag = ON_SubD::VertexTag::Smooth;
-          stationary_vertex_tag = ON_SubD::VertexTag::Smooth;
-          connecting_edge_tag = ON_SubD::EdgeTag::Smooth;
-          break;
-        default:
-          moved_vertex_tag = ON_SubD::VertexTag::Unset;
-          stationary_vertex_tag = ON_SubD::VertexTag::Unset;
-          connecting_edge_tag = ON_SubD::EdgeTag::Unset;
-          break;
-        }
-
-        // original vertex will eventually be moved.
-        v->m_vertex_tag = moved_vertex_tag;
-
-        // new vertex will become part of the stationary subset.
-        // It is not marked.
-        vpair.m_unmarked_vertex = this->AddVertex(stationary_vertex_tag, v->m_P);
-
-        // transform the marked boundary vertex
-        v->Transform(false, xform);
-
-        // edge from stationary subset to moved subset.
-        ON_SubDEdge* connecting_edge = this->AddEdge(connecting_edge_tag, vpair.m_unmarked_vertex, vpair.m_marked_vertex);
-        vpair.m_new_side = connecting_edge;
+        if (v->EdgeProperties().m_crease_edge_count >= 3)
+          v->m_vertex_tag = ON_SubD::VertexTag::Corner;
       }
     }
-
-    // sort vertex pairs so they can be located by the original vertex id.
-    vertex_pairs.QuickSort(ON_Internal_ExtrudedVertexPair::CompareMarkedVertexId);
-
-    // remove unmarked faces from marked vertices
-    for (unsigned int i = 0; i < vertex_pairs.UnsignedCount(); i++)
-    {
-      ON_SubDVertex* marked_vertex = vertex_pairs[i].m_marked_vertex;
-      ON_SubDVertex* unmarked_vertex = vertex_pairs[i].m_unmarked_vertex;
-      const unsigned int vertex_face_count0 = marked_vertex->m_face_count;
-      GrowVertexFaceArray(unmarked_vertex, vertex_face_count0);
-      marked_vertex->m_face_count = 0;
-      for (unsigned int vfi = 0; vfi < vertex_face_count0; vfi++)
-      {
-        const ON_SubDFace* f = marked_vertex->m_faces[vfi];
-        if (nullptr == f )
-          continue;
-        ON_SubDVertex* v
-          = (f->m_status.RuntimeMark())
-          ? marked_vertex
-          : unmarked_vertex;
-        v->m_faces[v->m_face_count] = f;
-        v->m_face_count++;
-      }
-    }
-
-    // build new side edges
-    ON_Internal_ExtrudedVertexPair key[2];
-    for (unsigned int i = 0; i < new_face_count; i++)
-    {
-      const ON_SubDEdge* e = new_sides[i].m_marked_edge;
-      for (unsigned int evi = 0; evi < 2; evi++)
-      {
-        key[evi].m_marked_vertex = const_cast<ON_SubDVertex*>(e->m_vertex[evi]);
-        const int i0 =
-          (nullptr != key[evi].m_marked_vertex)
-          ? vertex_pairs.BinarySearch(&key[evi], ON_Internal_ExtrudedVertexPair::CompareMarkedVertexId)
-          : -1;
-        if (i0 < 0)
-        {
-          key[evi] = ON_Internal_ExtrudedVertexPair::Unset;
-          continue;
-        }
-        key[evi] = vertex_pairs[i0];
-      } 
-
-      const ON_SubD::EdgeTag unmarked_edge_tag = new_sides[i].UnmarkedEdgeTag(key[0].m_unmarked_vertex, key[1].m_unmarked_vertex);
-      new_sides[i].m_unmarked_edge = this->AddEdge(unmarked_edge_tag, key[0].m_unmarked_vertex, key[1].m_unmarked_vertex);
-      new_sides[i].m_new_side0 = key[0].m_new_side;
-      new_sides[i].m_new_side1 = key[1].m_new_side;
-    }
-
-    // Mark everything a moved face touches
-    // including interior edges and vertices.
-    // Transform any vertices that are not already marked.
-    for (unsigned int i = 0; i < moved_face_count; i++)
-    {
-      const ON_SubDFace* f = moved_faces[i];
-      const unsigned int face_edge_count = f->m_edge_count;
-      for (unsigned int fei = 0; fei < face_edge_count; ++fei)
-      {
-        const ON_SubDEdge* e = f->Edge(fei);
-        if (nullptr == e)
-          continue;
-        e->m_status.SetRuntimeMark();
-        for (unsigned int evi = 0; evi < 2; evi++)
-        {
-          ON_SubDVertex* v = const_cast<ON_SubDVertex*>(e->m_vertex[evi]);
-          if (nullptr !=v && false == v->m_status.RuntimeMark())
-          {
-            v->Transform(false, xform);
-            v->m_status.SetRuntimeMark();
-          }
-        }
-      }
-    }
-
-    // Mark everything vertex a moved edge touches
-    // Transform any vertices that are not already marked.
-    for (unsigned int i = 0; i < moved_edges.UnsignedCount(); i++)
-    {
-      const ON_SubDEdge* e = moved_edges[i];
-      const unsigned int edge_face_count = e->m_face_count;
-      for (unsigned int efi = 0; efi < edge_face_count; ++efi)
-      {
-        e->m_status.SetRuntimeMark();
-        for (unsigned int evi = 0; evi < 2; evi++)
-        {
-          ON_SubDVertex* v = const_cast<ON_SubDVertex*>(e->m_vertex[evi]);
-          if (nullptr !=v && false == v->m_status.RuntimeMark())
-          {
-            v->Transform(false, xform);
-            v->m_status.SetRuntimeMark();
-          }
-        }
-      }
-    }
-
-    // For the original boundary vertrex, move unmarked edges to use the new vertex.
-    for (unsigned int i = 0; i < vertex_pairs.UnsignedCount(); i++)
-    {
-      Internal_SetEdgeVertices(*this, vertex_pairs[i]);
-    }
-
-    // build new side faces
-    for (unsigned int i = 0; i < new_face_count; i++)
-    {
-      Internal_AddNewFace(*this, new_sides[i]);
-    }
-
-    // Any edge touching the vertices in vertex_pairs[] may need its tag adjusted
-    // because those vertices may have had their tags adjusted.
-    // Some edges get checked twice, but adding code to check just once
-    // takes more time than checking twice.
-    for (unsigned int i = 0; i < vertex_pairs.UnsignedCount(); i++)
-    {
-      for (unsigned int j = 0; j < 2; j++)
-      {
-        const ON_SubDVertex* v = (0 == j) ? vertex_pairs[i].m_marked_vertex : vertex_pairs[i].m_unmarked_vertex;
-        if (nullptr == v || nullptr == v->m_edges)
-          continue;
-        for (unsigned int vei = 0; vei < v->m_edge_count; vei++)
-        {
-          ON_SubDEdge* e = ON_SUBD_EDGE_POINTER(v->m_edges[vei].m_ptr);
-          if (nullptr == e)
-            continue;
-          const ON_SubD::EdgeTag adjusted_etag = Internal_AdjustedEdgeTag(e);
-          if (ON_SubD::EdgeTag::Unset != adjusted_etag && e->m_edge_tag != adjusted_etag)
-            e->m_edge_tag = adjusted_etag;
-        }
-      }
-    }
-
-    // remove cached subdivision calculations
-    ClearEvaluationCache();
-
-    // Calculate vertex tags, edge tags, edge sector weights.
-    this->UpdateAllTagsAndSectorCoefficients(true);
-    break;
   }
+
+  // Calculate unset vertex tags, unset edge tags, edge sector weights.
+  this->UpdateAllTagsAndSectorCoefficients(true);
 
 #if defined(ON_DEBUG)
   IsValid();
 #endif
 
-  // TODO - run through new_sides[] array and attempt to adjust tags
-  //if (ON_SubD::EdgeTag::Unset != original_edge_tag || ON_SubD::EdgeTag::Unset != moved_edge_tag)
-  //{
-  //  
-  //}
-
-
-  // number of moved faces and new boundary faces
-  return moved_face_count + new_face_count;
+  // number of moved faces and new faces created by extruding edges
+  return moved_face_count + extruded_edge_count;
 }
 
 unsigned int ON_SubD::SetVertexTags(
@@ -13811,15 +15441,26 @@ const ON_SubDEdgePtr ON_SubDEdgeChain::EdgeChainNeighbor(
     if (bIsSmooth != (bIsCrease?false:true))
       break;
 
-    if (ON_SubD::ChainType::EqualEdgeAndVertexTag == chain_type)    
+    const unsigned short vertex_edge_count 
+      = ((ON_SubD::ChainType::EqualEdgeTagAndOrdinary == chain_type || ON_SubD::ChainType::EqualEdgeAndVertexTagAndOrdinary == chain_type)
+        && (1 == edge->m_face_count || 2 == edge->m_face_count))
+        ? (edge->m_face_count + 2)
+        : ((unsigned short)0);
+
+    if (vertex_edge_count > 0 && vertex_edge_count != v->m_edge_count)
+      break;
+
+    if (ON_SubD::ChainType::EqualEdgeAndVertexTag == chain_type || ON_SubD::ChainType::EqualEdgeAndVertexTagAndOrdinary == chain_type)
     {
       if (bIsSmooth)
       {
+        // edge is smooth so vertex must be smooth
         if (ON_SubD::VertexTag::Smooth != v->m_vertex_tag)
           break;
       }
       else
       {
+        // edge is crease so vertex must be crease
         if (ON_SubD::VertexTag::Crease != v->m_vertex_tag)
           break;
       }
@@ -13892,7 +15533,13 @@ const ON_SubDEdgePtr ON_SubDEdgeChain::EdgeChainNeighbor(
     {
       if (bIsSmooth != nxt->IsSmooth())
       {
-        if ( ON_SubD::ChainType::EqualEdgeTag == chain_type || ON_SubD::ChainType::EqualEdgeAndVertexTag == chain_type)
+        // edge tag changed
+        if ( 
+          ON_SubD::ChainType::EqualEdgeTag == chain_type 
+          || ON_SubD::ChainType::EqualEdgeAndVertexTag == chain_type
+          || ON_SubD::ChainType::EqualEdgeTagAndOrdinary == chain_type
+          || ON_SubD::ChainType::EqualEdgeAndVertexTagAndOrdinary == chain_type
+          )
           break;
       }
       if (false == bEnableStatusCheck || ON_ComponentStatus::StatusCheck(nxt->m_status, status_pass, status_fail))
@@ -13919,7 +15566,7 @@ ON_UniqueTester::Block* ON_UniqueTester::Block::NewBlock()
   size_t sz2 = ON_UniqueTester::Block::BlockCapacity * sizeof(m_a[0]);
   void* p = onmalloc(sz1 + sz2);
   Block* blk = new (p) Block();
-  blk->m_a = (ON__UINT_PTR*)((char*)(p)) + sz1;
+  blk->m_a = (ON__UINT_PTR*)(((char*)(p)) + sz1);
   return blk;
 }
 
@@ -14898,6 +16545,37 @@ void ON_SubDEdgePtrLink::Resolve3OrMoreEdges(
 }
 
 unsigned int ON_SubDEdgeChain::SortEdgesIntoEdgeChains(
+  const ON_SubD& subd,
+  const ON_SimpleArray< ON_COMPONENT_INDEX >& unsorted_edges,
+  unsigned int minimum_chain_length,
+  ON_SimpleArray< ON_SubDEdgePtr >& sorted_edges
+)
+{
+  const unsigned count = unsorted_edges.UnsignedCount();
+  ON_SimpleArray< const ON_SubDEdge* > a(count);
+  for (unsigned i = 0; i < count; ++i)
+  {
+    const ON_SubDEdge* e = subd.EdgeFromComponentIndex(unsorted_edges[i]);
+    if (nullptr != e)
+      a.Append(e);
+  }
+  return SortEdgesIntoEdgeChains(a, minimum_chain_length, sorted_edges);
+}
+
+unsigned int ON_SubDEdgeChain::SortEdgesIntoEdgeChains(
+  const ON_SimpleArray< ON_SubDComponentPtr >& unsorted_edges,
+  unsigned int minimum_chain_length,
+  ON_SimpleArray< ON_SubDEdgePtr >& sorted_edges
+)
+{
+  const unsigned count = unsorted_edges.UnsignedCount();
+  ON_SimpleArray< const ON_SubDEdge* > a(count);
+  for (unsigned i = 0; i < count; ++i)
+    a.Append(unsorted_edges[i].Edge());
+  return ON_SubDEdgeChain::SortEdgesIntoEdgeChains(a, minimum_chain_length, sorted_edges);
+}
+
+unsigned int ON_SubDEdgeChain::SortEdgesIntoEdgeChains(
   const ON_SimpleArray< const ON_SubDEdge* >& unsorted_edges,
   unsigned int minimum_chain_length,
   ON_SimpleArray< ON_SubDEdgePtr >& sorted_edges
@@ -15189,6 +16867,866 @@ unsigned int ON_SubDEdgeChain::SortEdgesIntoEdgeChains(
 
   return chain_count;
 }
+
+unsigned int ON_SubDEdgeChain::OrientEdgesIntoEdgeChains(
+  const ON_SubD& subd,
+  const ON_SimpleArray< ON_COMPONENT_INDEX >& edges,
+  ON_SimpleArray< ON_SubDEdgePtr >& edge_chain
+)
+{
+  const unsigned count = edges.UnsignedCount();
+  ON_SimpleArray< const ON_SubDEdge* > a(count);
+  for (unsigned i = 0; i < count; ++i)
+    a.Append(subd.EdgeFromComponentIndex(edges[i]));
+  return ON_SubDEdgeChain::OrientEdgesIntoEdgeChains(a, edge_chain);
+}
+
+unsigned int ON_SubDEdgeChain::OrientEdgesIntoEdgeChains(
+  const ON_SimpleArray< ON_SubDComponentPtr >& edges,
+  ON_SimpleArray< ON_SubDEdgePtr >& edge_chain
+)
+{
+  const unsigned count = edges.UnsignedCount();
+  ON_SimpleArray< const ON_SubDEdge* > a(count);
+  for (unsigned i = 0; i < count; ++i)
+    a.Append(edges[i].Edge());
+  return ON_SubDEdgeChain::OrientEdgesIntoEdgeChains(a, edge_chain);
+}
+
+unsigned int ON_SubDEdgeChain::OrientEdgesIntoEdgeChains(
+  const ON_SimpleArray< const ON_SubDEdge* >& edges,
+  ON_SimpleArray< ON_SubDEdgePtr >& edge_chains
+)
+{
+  const unsigned count = edges.UnsignedCount();
+  edge_chains.SetCount(0);
+  edge_chains.Reserve(count);
+  unsigned int chain_count = 0;
+  unsigned chain_length = 0;
+  ON_SubDEdgePtr* prev_eptr = nullptr;
+  for (unsigned i = 0; i < count; ++i)
+  {
+    const ON_SubDEdge* e = edges[i];
+    if (nullptr == e || nullptr == e->m_vertex[0] || nullptr == e->m_vertex[1] || e->m_vertex[0] == e->m_vertex[1])
+      continue;
+    ON_SubDEdgePtr& eptr = edge_chains.AppendNew();
+    eptr = ON_SubDEdgePtr::Create(e);
+    if (nullptr != prev_eptr && prev_eptr->RelativeVertex(1) != eptr.RelativeVertex(0) )
+    {
+      const ON_SubDVertex* prev_v[2] = { prev_eptr->RelativeVertex(0), prev_eptr->RelativeVertex(1) };
+      const ON_SubDVertex* v[2] = { eptr.RelativeVertex(0), eptr.RelativeVertex(1) };
+      if (prev_v[1] == v[1])
+        eptr = eptr.Reversed();
+      else if (1 == chain_length)
+      {
+        if (prev_v[0] == v[0])
+          *prev_eptr = prev_eptr->Reversed();
+        else if (prev_v[0] == v[1])
+        {
+          *prev_eptr = prev_eptr->Reversed();
+          eptr = eptr.Reversed();
+        }
+        else
+          prev_eptr = nullptr;
+      }
+      else
+        prev_eptr = nullptr;
+    }
+
+    if (nullptr == prev_eptr)
+    {
+      chain_count = 1;
+      chain_length = 0;
+    }
+    prev_eptr = &eptr;
+    ++chain_length;
+  }
+  return chain_count;
+}
+
+
+
+ON_SubDComponentList::ON_SubDComponentList(const ON_SubDComponentList& src)
+  : m_subd_runtime_serial_number(src.m_subd_runtime_serial_number)
+  , m_subd_content_serial_number(src.m_subd_content_serial_number)
+  , m_subd_vertex_count(src.m_subd_vertex_count)
+  , m_subd_edge_count(src.m_subd_edge_count)
+  , m_subd_face_count(src.m_subd_face_count)
+  , m_component_list(src.m_component_list)
+{
+  m_subd.ShareDimple(src.m_subd);
+}
+
+ON_SubDComponentList& ON_SubDComponentList::operator=(const ON_SubDComponentList& src)
+{
+  if (this != &src)
+  {
+    m_subd_runtime_serial_number = src.m_subd_runtime_serial_number;
+    m_subd_content_serial_number = src.m_subd_content_serial_number;
+    m_subd_vertex_count = src.m_subd_vertex_count;
+    m_subd_edge_count = src.m_subd_edge_count;
+    m_subd_face_count = src.m_subd_face_count;
+    m_component_list = src.m_component_list;
+    m_subd.ShareDimple(src.m_subd);
+  }
+  return *this;
+}
+
+ON__UINT64 ON_SubDComponentList::SubDRuntimeSerialNumber() const
+{
+  return m_subd_runtime_serial_number;
+}
+
+ON__UINT64 ON_SubDComponentList::SubDContentSerialNumber() const
+{
+  return m_subd_content_serial_number;
+}
+
+unsigned int ON_SubDComponentList::Count() const
+{
+  return m_component_list.UnsignedCount();
+}
+
+const ON_SubDComponentPtr ON_SubDComponentList::operator[](int i) const
+{
+  return i >= 0 && i < m_component_list.Count() ? m_component_list[i] : ON_SubDComponentPtr::Null;
+}
+
+const ON_SubDComponentPtr ON_SubDComponentList::operator[](unsigned int i) const
+{
+  return i < m_component_list.UnsignedCount() ? m_component_list[i] : ON_SubDComponentPtr::Null;
+}
+
+const ON_SubDComponentPtr ON_SubDComponentList::operator[](ON__INT64 i) const
+{
+  return i >= 0 && i < ((ON__INT64)m_component_list.Count()) ? m_component_list[i] : ON_SubDComponentPtr::Null;
+}
+
+const ON_SubDComponentPtr ON_SubDComponentList::operator[](ON__UINT64 i) const
+{
+  return i < ((ON__UINT64)m_component_list.UnsignedCount()) ? m_component_list[i] : ON_SubDComponentPtr::Null;
+}
+
+#if defined(ON_RUNTIME_APPLE)
+const ON_SubDComponentPtr ON_SubDComponentList::operator[](size_t i) const
+{
+  return i >= 0 && i < m_component_list.Count() ? m_component_list[i] : ON_SubDComponentPtr::Null;
+}
+#endif
+
+const ON_SimpleArray< ON_SubDComponentPtr >& ON_SubDComponentList::ComponentList() const
+{
+  return this->m_component_list;
+}
+
+const ON_SubD& ON_SubDComponentList::SubD() const
+{
+  return m_subd;
+}
+
+ON__UINT64 ON_SubDComponentList::UpdateContentSerialNumber()
+{
+  m_subd_content_serial_number = m_subd.ContentSerialNumber();
+  return m_subd_content_serial_number;
+}
+
+unsigned int ON_SubDComponentList::UpdateSubDForExperts(const ON_SubD & subd, bool bUpdateDeletedComponents)
+{
+  const unsigned count0 = Count();
+  if (subd.RuntimeSerialNumber() == m_subd.RuntimeSerialNumber())
+    return count0; // the components in this list are in subd.
+
+  // Use the component ids to update the list to reference components in subd.
+  unsigned count1 = 0;
+  for (unsigned i = 0; i < count0; ++i)
+  {
+    ON_SubDComponentPtr cptr0 = m_component_list[i];
+    const ON_SubDComponentBase* c0 = cptr0.ComponentBase();
+    if (nullptr == c0)
+      continue;
+    if (false == bUpdateDeletedComponents && false == c0->IsActive())
+      continue;
+    ON_COMPONENT_INDEX ci = cptr0.ComponentIndex();
+    if (0 == ci.m_index)
+      continue;
+    ON_SubDComponentPtr cptr1 = subd.ComponentPtrFromComponentIndex(ci);
+    if (cptr1.IsNull())
+      continue;
+    if (0 != cptr0.ComponentDirection())
+      cptr1.SetComponentDirection();
+    m_component_list[count1++] = cptr1;
+  }
+  m_component_list.SetCount(count1);
+  m_subd.ShareDimple(subd);
+  m_subd_runtime_serial_number = m_subd.RuntimeSerialNumber();
+  m_subd_content_serial_number = m_subd.ContentSerialNumber();
+  return Count();
+}
+
+unsigned ON_SubDComponentList::CreateFromComponentList(const ON_SubD& subd, const ON_SimpleArray<ON_COMPONENT_INDEX>& component_list)
+{
+  ON_SubDComponentMarksClearAndRestore saved_marks(subd);
+  const unsigned count = component_list.UnsignedCount();
+  unsigned marked_count = 0;
+  for (unsigned i = 0; i < count; ++i)
+  {
+    const ON_COMPONENT_INDEX ci = component_list[i];
+    if (ON_COMPONENT_INDEX::TYPE::subd_vertex != ci.m_type)
+      continue;
+    const unsigned vertex_id = (unsigned)ci.m_index;
+    const ON_SubDVertex* v = subd.VertexFromId(vertex_id);
+    if (nullptr == v)
+      continue;
+    if (v->m_status.RuntimeMark())
+      continue;
+    v->m_status.SetRuntimeMark();
+    ++marked_count;
+  }
+  return Internal_Create(subd, true, true, true, true, marked_count);
+}
+
+unsigned ON_SubDComponentList::CreateFromComponentList(const ON_SubD& subd, const ON_SimpleArray<ON_SubDComponentPtr>& component_list)
+{
+  ON_SubDComponentMarksClearAndRestore saved_marks(subd);
+  const unsigned count = component_list.UnsignedCount();
+  unsigned marked_count = 0;
+  for (unsigned i = 0; i < count; ++i)
+  {
+    const ON_SubDComponentBase* c = component_list[i].ComponentBase();
+    if (nullptr == c)
+      continue;
+    if (c->m_status.RuntimeMark())
+      continue;
+    c->m_status.SetRuntimeMark();
+    ++marked_count;
+  }
+  return Internal_Create(subd, true, true, true, true, marked_count);
+}
+
+unsigned ON_SubDComponentList::CreateFromVertexIdList(const ON_SubD& subd, const ON_SimpleArray<unsigned>& vertex_id_list)
+{
+  ON_SubDComponentMarksClearAndRestore saved_marks(subd);
+  const unsigned count = vertex_id_list.UnsignedCount();
+  unsigned marked_count = 0;
+  for (unsigned i = 0; i < count; ++i)
+  {
+    const unsigned vertex_id = vertex_id_list[i];
+    if (vertex_id <= 0 || vertex_id >= ON_UNSET_UINT_INDEX)
+      continue;
+    const ON_SubDVertex* v = subd.VertexFromId(vertex_id);
+    if (nullptr == v)
+      continue;
+    if (v->m_status.RuntimeMark())
+      continue;
+    v->m_status.SetRuntimeMark();
+    ++marked_count;
+  }
+  return Internal_Create(subd, true, false, false, true, marked_count);
+}
+
+
+unsigned ON_SubDComponentList::CreateFromVertexList(const ON_SubD& subd, const ON_SimpleArray<ON_SubDVertexPtr>& vertex_list)
+{
+  ON_SubDComponentMarksClearAndRestore saved_marks(subd);
+  const unsigned count = vertex_list.UnsignedCount();
+  unsigned marked_count = 0;
+  for (unsigned i = 0; i < count; ++i)
+  {
+    const ON_SubDVertex* v = vertex_list[i].Vertex();
+    if (nullptr == v)
+      continue;
+    if (v->m_status.RuntimeMark())
+      continue;
+    v->m_status.SetRuntimeMark();
+    ++marked_count;
+  }
+  return Internal_Create(subd, true, false, false, true, marked_count);
+}
+
+unsigned ON_SubDComponentList::CreateFromVertexList(const ON_SubD& subd, const ON_SimpleArray<const ON_SubDVertex*>& vertex_list)
+{
+  ON_SubDComponentMarksClearAndRestore saved_marks(subd);
+  const unsigned count = vertex_list.UnsignedCount();
+  unsigned marked_count = 0;
+  for (unsigned i = 0; i < count; ++i)
+  {
+    const ON_SubDVertex* v = vertex_list[i];
+    if (nullptr == v)
+      continue;
+    if (v->m_status.RuntimeMark())
+      continue;
+    v->m_status.SetRuntimeMark();
+    ++marked_count;
+  }
+  return Internal_Create(subd, true, false, false, true, marked_count);
+}
+
+unsigned ON_SubDComponentList::CreateFromMarkedComponents(const ON_SubD& subd, bool bComponentInListMark)
+{
+  unsigned marked_count = 0;
+  ON_SubDComponentIterator cit(subd);
+  if (bComponentInListMark)
+    bComponentInListMark = true; // avoid other byte values.
+  for (ON_SubDComponentPtr c = cit.FirstComponent(); c.IsNotNull(); c = cit.NextComponent())
+  {
+    if (bComponentInListMark != c.Mark())
+      continue;
+    ++marked_count;
+  }
+  return Internal_Create(subd, true, true, true, bComponentInListMark, marked_count);
+}
+
+unsigned ON_SubDComponentList::CreateFromMarkedVertices(const ON_SubD& subd, bool bVertexInListMark)
+{
+  unsigned marked_count = 0;
+  ON_SubDVertexIterator vit(subd);
+  if (bVertexInListMark)
+    bVertexInListMark = true; // avoid other byte values.
+  for (const ON_SubDVertex* v = vit.FirstVertex(); nullptr != v; v = vit.NextVertex())
+  {
+    if (bVertexInListMark != v->m_status.RuntimeMark())
+      continue;
+    ++marked_count;
+  }
+  return Internal_Create(subd, true, false, false, bVertexInListMark, marked_count);
+}
+
+unsigned ON_SubDComponentList::CreateFromMarkedEdges(const ON_SubD& subd, bool bEdgeInListMark)
+{
+  unsigned marked_count = 0;
+  ON_SubDEdgeIterator eit(subd);
+  if (bEdgeInListMark)
+    bEdgeInListMark = true; // avoid other byte values.
+  for (const ON_SubDEdge* e = eit.FirstEdge(); nullptr != e; e = eit.NextEdge())
+  {
+    if (bEdgeInListMark != e->m_status.RuntimeMark())
+      continue;
+    ++marked_count;
+  }
+  return Internal_Create(subd, false, true, false, bEdgeInListMark, marked_count);
+}
+
+unsigned ON_SubDComponentList::CreateFromMarkedFaces(const ON_SubD& subd, bool bFaceInListMark)
+{
+  unsigned marked_count = 0;
+  ON_SubDFaceIterator fit(subd);
+  if (bFaceInListMark)
+    bFaceInListMark = true; // avoid other byte values.
+  for (const ON_SubDFace* f = fit.FirstFace(); nullptr != f; f = fit.NextFace())
+  {
+    if (bFaceInListMark != f->m_status.RuntimeMark())
+      continue;
+    ++marked_count;
+  }
+  return Internal_Create(subd, false, false, true, bFaceInListMark, marked_count);
+}
+
+unsigned ON_SubDComponentList::Internal_Create(const ON_SubD & subd, bool bAddVertices, bool bAddEdges, bool bAddFaces, bool bComponentInListMark, unsigned marked_component_count)
+{
+  Destroy();
+
+  if (0 == marked_component_count)
+    return 0;
+
+  const unsigned face_count = bAddFaces ? subd.FaceCount() : 0U;
+  const unsigned edge_count = bAddEdges ? subd.EdgeCount() : 0U;
+  const unsigned vertex_count = bAddVertices ? subd.VertexCount() : 0U;
+  if (0 == vertex_count && 0 == edge_count && 0 == face_count)
+    return 0;
+
+  if (marked_component_count > vertex_count + edge_count + face_count)
+    return 0;
+
+  bComponentInListMark = bComponentInListMark ? true : false;
+  m_component_list.Reserve(marked_component_count);
+  m_component_list.SetCount(0);
+  if (vertex_count > 0)
+  {
+    ON_SubDVertexIterator vit(subd);
+    for (const ON_SubDVertex* v = vit.FirstVertex(); nullptr != v; v = vit.NextVertex())
+    {
+      if (bComponentInListMark != v->m_status.RuntimeMark())
+        continue;
+      m_component_list.Append(v->ComponentPtr());
+    }
+  }
+  if (edge_count > 0)
+  {
+    ON_SubDEdgeIterator eit(subd);
+    for (const ON_SubDEdge* e = eit.FirstEdge(); nullptr != e; e = eit.NextEdge())
+    {
+      if (bComponentInListMark != e->m_status.RuntimeMark())
+        continue;
+      m_component_list.Append(e->ComponentPtr());
+    }
+  }
+  if (face_count > 0)
+  {
+    ON_SubDFaceIterator fit(subd);
+    for (const ON_SubDFace* f = fit.FirstFace(); nullptr != f; f = fit.NextFace())
+    {
+      if (bComponentInListMark != f->m_status.RuntimeMark())
+        continue;
+      m_component_list.Append(f->ComponentPtr());
+    }
+  }
+
+  if (m_component_list.UnsignedCount() > 0)
+  {
+    m_subd.ShareDimple(subd);
+    m_subd_runtime_serial_number = subd.RuntimeSerialNumber();
+    m_subd_content_serial_number = subd.ContentSerialNumber();
+  }
+  return m_component_list.UnsignedCount();
+}
+
+unsigned int ON_SubDComponentList::RemoveAllComponents()
+{
+  const unsigned count0 = Count();
+  m_component_list.SetCount(0);
+  return count0;
+}
+
+unsigned int ON_SubDComponentList::RemoveAllVertices()
+{
+  return Internal_RemoveComponents(true, false, false);
+}
+
+unsigned int ON_SubDComponentList::RemoveAllEdges()
+{
+  return Internal_RemoveComponents(false, true, false);
+}
+
+unsigned int ON_SubDComponentList::RemoveAllFaces()
+{
+  return Internal_RemoveComponents(false, false, true);
+}
+
+unsigned ON_SubDComponentList::Internal_RemoveComponents(
+  bool bRemoveVertices,
+  bool bRemoveEdges,
+  bool bRemoveFaces
+)
+{
+  unsigned int count0 = Count();
+  if (bRemoveVertices || bRemoveEdges || bRemoveFaces)
+  {
+    unsigned count1 = 0;
+    for (unsigned i = 0; i < count0; ++i)
+    {
+      const ON_SubDComponentPtr cptr = m_component_list[i];
+      bool bRemove = false;
+      switch (cptr.ComponentType())
+      {
+      case ON_SubDComponentPtr::Type::Vertex:
+        bRemove = bRemoveVertices;
+        break;
+      case ON_SubDComponentPtr::Type::Edge:
+        bRemove = bRemoveEdges;
+        break;
+      case ON_SubDComponentPtr::Type::Face:
+        bRemove = bRemoveFaces;
+        break;
+      default:
+        bRemove = true;
+      }
+      if (bRemove)
+        continue;
+      m_component_list[count1++] = cptr;
+    }
+    m_component_list.SetCount(count1);
+  }
+  return count0 - Count();
+}
+
+
+void ON_SubDComponentList::Destroy()
+{
+  m_subd_runtime_serial_number = 0;
+  m_subd_content_serial_number = 0;
+  m_component_list.SetCount(0);
+  m_subd.ShareDimple(ON_SubD::Empty);
+}
+
+const ON_SubDComponentFilter ON_SubDComponentFilter::Create(
+  bool bAcceptVertices,
+  bool bAcceptEdges,
+  bool bAcceptFaces
+)
+{
+  ON_SubDComponentFilter f;
+  if (false == bAcceptVertices)
+    f.m_bRejectVertices = true;
+  if (false == bAcceptEdges)
+    f.m_bRejectEdges = true;
+  if (false == bAcceptFaces)
+    f.m_bRejectFaces = true;
+  return f;
+}
+
+bool ON_SubDComponentFilter::AcceptComponent(ON_COMPONENT_INDEX component_index, const class ON_Geometry* geometry) const
+{
+  if (false == component_index.IsSubDComponentIndex())
+    return false;
+  const ON_SubDComponentRef* cref = ON_SubDComponentRef::Cast(geometry);
+  if (nullptr == cref)
+    return false;
+  const ON_SubDComponentPtr cptr = cref->ComponentPtr();
+  if (component_index.m_index != (int)cptr.ComponentId())
+    return false;
+  switch (component_index.m_type)
+  {
+  case ON_COMPONENT_INDEX::TYPE::subd_vertex:
+    if (ON_SubDComponentPtr::Type::Vertex != cptr.ComponentType())
+      return false;
+    break;
+  case ON_COMPONENT_INDEX::TYPE::subd_edge:
+    if (ON_SubDComponentPtr::Type::Edge != cptr.ComponentType())
+      return false;
+    break;
+  case ON_COMPONENT_INDEX::TYPE::subd_face:
+    if (ON_SubDComponentPtr::Type::Face != cptr.ComponentType())
+      return false;
+    break;
+  }
+  return AcceptComponent(cptr);
+}
+
+bool ON_SubDComponentFilter::AcceptComponent(const class ON_Geometry* geometry) const
+{
+  return AcceptComponent(ON_SubDComponentRef::Cast(geometry));
+}
+
+
+bool ON_SubDComponentFilter::AcceptComponent(const class ON_SubDComponentRef* cref) const
+{
+  return (nullptr != cref) ? AcceptComponent(cref->ComponentPtr()) : false;
+}
+
+bool ON_SubDComponentFilter::AcceptComponent(ON_SubDComponentPtr cptr) const
+{
+  switch (cptr.ComponentType())
+  {
+  case ON_SubDComponentPtr::Type::Vertex:
+    return AcceptVertex(cptr.Vertex());
+    break;
+  case ON_SubDComponentPtr::Type::Edge:
+    return AcceptEdge(cptr.Edge());
+    break;
+  case ON_SubDComponentPtr::Type::Face:
+    return AcceptFace(cptr.Face());
+    break;
+  }
+  return false;
+}
+
+bool ON_SubDComponentFilter::AcceptVertex(ON_SubDVertexPtr vptr) const
+{
+  return AcceptVertex(vptr.Vertex());
+}
+
+bool ON_SubDComponentFilter::AcceptEdge(ON_SubDEdgePtr eptr) const
+{
+  return AcceptEdge(eptr.Edge());
+}
+
+
+bool ON_SubDComponentFilter::AcceptFace(ON_SubDFacePtr fptr) const
+{
+  return AcceptFace(fptr.Face());
+}
+
+bool ON_SubDComponentFilter::AcceptVertex(const ON_SubDVertex * v) const
+{
+  if (m_bRejectVertices)
+    return false;
+
+  if (nullptr == v)
+    return false;
+
+  if (false == AcceptVertexTag(v->m_vertex_tag))
+    return false;
+
+  if (ON_SubDComponentFilter::Topology::Unset != m_vertex_topology_filter)
+  {
+    // check boundary/interior/nonmanifold
+    if (v->HasBoundaryVertexTopology())
+    {
+      if (0 == (static_cast<unsigned char>(ON_SubDComponentFilter::Topology::Boundary)& static_cast<unsigned char>(m_vertex_topology_filter)))
+        return false;
+    }
+    else if (v->HasInteriorVertexTopology())
+    {
+      if (0 == (static_cast<unsigned char>(ON_SubDComponentFilter::Topology::Interior)& static_cast<unsigned char>(m_vertex_topology_filter)))
+        return false;
+    }
+    else
+    {
+      if (0 == (static_cast<unsigned char>(ON_SubDComponentFilter::Topology::Nonmanifold)& static_cast<unsigned char>(m_vertex_topology_filter)))
+        return false;
+    }
+  }
+
+  return true;
+}
+
+bool ON_SubDComponentFilter::AcceptEdge(const ON_SubDEdge * e) const
+{
+  if (m_bRejectEdges)
+    return false;
+
+  if (nullptr == e)
+    return false;
+
+  if (false == AcceptEdgeTag(e->m_edge_tag))
+    return false;
+
+  if (ON_SubDComponentFilter::Topology::Unset != m_edge_topology_filter)
+  {
+    // check boundary/interior/nonmanifold
+    if (1 == e->m_face_count)
+    {
+      if (0 == (static_cast<unsigned char>(ON_SubDComponentFilter::Topology::Boundary)& static_cast<unsigned char>(m_edge_topology_filter)))
+        return false;
+    }
+    else if (2 == e->m_face_count)
+    {
+      if (0 == (static_cast<unsigned char>(ON_SubDComponentFilter::Topology::Interior)& static_cast<unsigned char>(m_edge_topology_filter)))
+        return false;
+    }
+    else
+    {
+      if (0 == (static_cast<unsigned char>(ON_SubDComponentFilter::Topology::Nonmanifold)& static_cast<unsigned char>(m_edge_topology_filter)))
+        return false;
+    }
+  }
+
+  return true;
+}
+
+bool ON_SubDComponentFilter::AcceptFace(const ON_SubDFace * f) const
+{
+  if (m_bRejectFaces)
+    return false;
+
+  if (nullptr == f)
+    return false;
+
+  if (m_maximum_face_edge_count > 0U)
+  {
+    const unsigned face_edge_count = f->m_edge_count;
+    if (face_edge_count < m_minimum_face_edge_count || face_edge_count > m_maximum_face_edge_count)
+      return false;
+  }
+
+  if (ON_SubDComponentFilter::Topology::Unset != m_edge_topology_filter)
+  {
+    const ON_SubDEdgePtr* eptr = f->m_edge4;
+    for (unsigned short fei = 0; fei < f->m_edge_count; ++fei, ++eptr)
+    {
+      if (4 == fei)
+      {
+        eptr = f->m_edgex;
+        if (nullptr == eptr)
+          break;
+      }
+      const ON_SubDEdge* e = eptr->Edge();
+      if (nullptr == e)
+        continue;
+      if (1 == e->m_face_count)
+      {
+        if (0 == (static_cast<unsigned char>(ON_SubDComponentFilter::Topology::Boundary)& static_cast<unsigned char>(m_edge_topology_filter)))
+          return false;
+      }
+      else if (2 == e->m_face_count)
+      {
+        if (0 == (static_cast<unsigned char>(ON_SubDComponentFilter::Topology::Interior)& static_cast<unsigned char>(m_edge_topology_filter)))
+          return false;
+      }
+      else
+      {
+        if (0 == (static_cast<unsigned char>(ON_SubDComponentFilter::Topology::Nonmanifold)& static_cast<unsigned char>(m_edge_topology_filter)))
+          return false;
+      }
+    }
+  }
+
+  return true;
+}
+
+void ON_SubDComponentFilter::SetAcceptVertices(bool bAcceptVertices)
+{
+  m_bRejectVertices = bAcceptVertices ? false : true;
+}
+
+bool ON_SubDComponentFilter::AcceptVertices() const
+{
+  return false == m_bRejectVertices;
+}
+
+void ON_SubDComponentFilter::SetAcceptEdges(bool bAcceptEdges)
+{
+  m_bRejectEdges = bAcceptEdges ? false : true;
+}
+
+bool ON_SubDComponentFilter::AcceptEdges() const
+{
+  return false == m_bRejectEdges;
+}
+
+void ON_SubDComponentFilter::SetAcceptFaces(bool bAcceptFaces)
+{
+  m_bRejectFaces = bAcceptFaces ? false : true;
+}
+
+bool ON_SubDComponentFilter::AcceptFaces() const
+{
+  return false == m_bRejectFaces;
+}
+
+void ON_SubDComponentFilter::SetVertexTopologyFilter(ON_SubDComponentFilter::Topology vertex_topology_filter)
+{
+  m_vertex_topology_filter = vertex_topology_filter;
+}
+
+void ON_SubDComponentFilter::ClearVertexTopologyFilter()
+{
+  m_vertex_topology_filter = ON_SubDComponentFilter::Topology::Unset;
+}
+
+ON_SubDComponentFilter::Topology ON_SubDComponentFilter::VertexTopologyFilter() const
+{
+  return m_vertex_topology_filter;
+}
+
+void ON_SubDComponentFilter::SetEdgeTopologyFilter(ON_SubDComponentFilter::Topology edge_topology_filter)
+{
+  m_edge_topology_filter = edge_topology_filter;
+}
+
+ON_SubDComponentFilter::Topology ON_SubDComponentFilter::EdgeTopologyFilter() const
+{
+  return m_edge_topology_filter;
+}
+
+void ON_SubDComponentFilter::ClearEdgeTopologyFilter()
+{
+  m_edge_topology_filter = ON_SubDComponentFilter::Topology::Unset;
+}
+
+void ON_SubDComponentFilter::SetFaceTopologyFilter(ON_SubDComponentFilter::Topology face_topology_filter)
+{
+  m_face_topology_filter = face_topology_filter;
+}
+
+ON_SubDComponentFilter::Topology ON_SubDComponentFilter::FaceTopologyFilter() const
+{
+  return m_face_topology_filter;
+}
+
+void ON_SubDComponentFilter::ClearFaceTopologyFilter()
+{
+  m_face_topology_filter = ON_SubDComponentFilter::Topology::Unset;
+}
+
+bool ON_SubDComponentFilter::AcceptVertexTag(ON_SubD::VertexTag vertex_tag) const
+{
+  if (ON_SubD::VertexTag::Unset == m_vertex_tag_filter[0])
+    return true; // no tag filter
+
+  for (size_t i = 0; i < sizeof(m_vertex_tag_filter) / sizeof(m_vertex_tag_filter[0]); ++i)
+  {
+    if (ON_SubD::VertexTag::Unset == m_vertex_tag_filter[i])
+      break;
+    if (m_vertex_tag_filter[i] != vertex_tag)
+      continue;
+    return true;
+  }
+  return false;
+}
+
+void ON_SubDComponentFilter::AddAcceptedVertexTag(ON_SubD::VertexTag vertex_tag)
+{
+  for (size_t i = 0; i < sizeof(m_vertex_tag_filter) / sizeof(m_vertex_tag_filter[0]); ++i)
+  {
+    if (vertex_tag == m_vertex_tag_filter[i])
+      break;
+    if (ON_SubD::VertexTag::Unset == m_vertex_tag_filter[i])
+    {
+      m_vertex_tag_filter[i] = vertex_tag;
+      break;
+    }
+  }
+}
+
+void ON_SubDComponentFilter::ClearVertexTagFilter()
+{
+  for (size_t i = 0; i < sizeof(m_vertex_tag_filter) / sizeof(m_vertex_tag_filter[0]); ++i)
+    m_vertex_tag_filter[i] = ON_SubD::VertexTag::Unset;
+}
+
+
+bool ON_SubDComponentFilter::AcceptEdgeTag(ON_SubD::EdgeTag edge_tag) const
+{
+  if (ON_SubD::EdgeTag::Unset == m_edge_tag_filter[0])
+    return true; // no tag filter
+
+  for (size_t i = 0; i < sizeof(m_edge_tag_filter) / sizeof(m_edge_tag_filter[0]); ++i)
+  {
+    if (ON_SubD::EdgeTag::Unset == m_edge_tag_filter[i])
+      break;
+    if (m_edge_tag_filter[i] != edge_tag)
+      continue;
+    return true;
+  }
+  return false;
+}
+
+void ON_SubDComponentFilter::AddAcceptedEdgeTag(ON_SubD::EdgeTag edge_tag)
+{
+  for (size_t i = 0; i < sizeof(m_edge_tag_filter) / sizeof(m_edge_tag_filter[0]); ++i)
+  {
+    if (edge_tag == m_edge_tag_filter[i])
+      break;
+    if (ON_SubD::EdgeTag::Unset == m_edge_tag_filter[i])
+    {
+      m_edge_tag_filter[i] = edge_tag;
+      break;
+    }
+  }
+}
+
+void ON_SubDComponentFilter::ClearEdgeTagFilter()
+{
+  for (size_t i = 0; i < sizeof(m_edge_tag_filter) / sizeof(m_edge_tag_filter[0]); ++i)
+    m_edge_tag_filter[i] = ON_SubD::EdgeTag::Unset;
+}
+
+bool ON_SubDComponentFilter::AcceptFaceEdgeCount(
+  unsigned face_edge_count
+) const
+{
+  return (m_maximum_face_edge_count >= 3U) ? (face_edge_count >= m_minimum_face_edge_count && face_edge_count <= m_maximum_face_edge_count) : false;
+}
+
+void ON_SubDComponentFilter::SetFaceEdgeCountFilter(
+  unsigned minimum_face_edge_count,
+  unsigned maximum_face_edge_count
+)
+{
+  if (minimum_face_edge_count <= maximum_face_edge_count && maximum_face_edge_count >= 3U)
+  {
+    m_minimum_face_edge_count = minimum_face_edge_count;
+    m_maximum_face_edge_count = maximum_face_edge_count;
+  }
+}
+
+void ON_SubDComponentFilter::ClearFaceEdgeCountFilter()
+{
+  m_minimum_face_edge_count = 0U;
+  m_maximum_face_edge_count = 0U;
+}
+
 
 
 #if defined(ON_SUBD_CENSUS)

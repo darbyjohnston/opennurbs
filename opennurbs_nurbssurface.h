@@ -948,19 +948,19 @@ public:
 
   bool GetGrevilleAbcissae( // see ON_GetGrevilleAbcissa() for details
            int dir,      // dir
-           double* g   // g[cv count]
+           double* g     // g[cv count]
            ) const;
 
   bool SetClampedGrevilleKnotVector(
-           int dir,          // dir
-           int g_stride,          // g_stride
-           const double* g // g[], CVCount(dir) many Greville abcissa
+           int dir,           // dir
+           int g_stride,      // g_stride
+           const double* g    // g[], CVCount(dir) many Greville abcissa
            );
 
   bool SetPeriodicGrevilleKnotVector(
-           int dir,          // dir
-           int g_stride,          // g_stride
-           const double* g // g[], Greville abcissa
+           int dir,           // dir
+           int g_stride,      // g_stride
+           const double* g    // g[], Greville abcissa
            );
 
   bool ZeroCVs(); // zeros all CVs (any weights set to 1);
@@ -1045,6 +1045,48 @@ public:
       int span_index1, 
       ON_BezierSurface& bezier_surface
       ) const;
+
+  /*
+   Description:
+    Create an ON_NurbsSurface satisfying Hermite interpolation conditions at a grid of points.
+  Parameters:
+   u_Parameters
+   v_Parameters - [in] Specifies the "u"( or "v") parameters defining the grid of parameter values
+         u_Parameters.Count()>1
+         u_Parameters are strictly increasing, i.e. u_Parameters[i] < u_Parameters[i+1]
+         same conditions on v_Parameters
+         Let n = u_Parameters.Count() and m = v_Parameters.Count(). 
+
+   Each of GridPoints, u_Tangents, v_Tangents and TwistVectors are data on a grid of parameters.
+   The size of each of these arrays must be n x m, s
+        GridPoints.Count() == n and GridPoints[i].Count() == m.
+
+   GridPoints - [in] Grid of points to interpolate. 
+   u_Tangents - [in]  Grid of Tangent directions ( actually first derivatives) to interpolate.
+   v_Tangents - [in]  Grid of Tangent directions ( actually first derivatives) to interpolate.
+   TwistVectors - [in]  Grid of twist vectors (mixed second partial derovative) to interpolate.
+
+   hermite_surface -[in]  optional existing ON_NurbsSurface returned here.
+  Returns:
+    A hermite-surface satisfying interpolation conditions.  Null if error. 
+  Notes:
+    The Hermite surface,  H, is bicubic on each patch [u_i, u_(i+1)] x [v_j, v_(j+1)]
+    and satisfies
+      H( u_i, v_j) = GridData[i][j] 
+      H_u(u_i, v_j) = u_Tangents[i][j]
+      H_v(u_i, v_j) = v_Tangents[i][j]
+      H_uv(u_i, v_j) = Twist[i][j]
+  */
+  static
+  class ON_NurbsSurface* CreateHermiteSurface(
+      const ON_SimpleArray<double>& u_Parameters,
+      const ON_SimpleArray<double>& v_Parameters,
+      const ON_ClassArray<ON_SimpleArray<ON_3dPoint>>& GridPoints,
+      const ON_ClassArray<ON_SimpleArray<ON_3dVector>>& u_Tangents,
+      const ON_ClassArray<ON_SimpleArray<ON_3dVector>>& v_Tangents,
+      const ON_ClassArray<ON_SimpleArray<ON_3dVector>>& TwistVectors,
+      class ON_NurbsSurface* hermite_surface = 0);
+  
 
   /////////////////////////////////////////////////////////////////
   // Implementation
@@ -1992,6 +2034,97 @@ ON_NurbsSurface* ON_NurbsSurfaceQuadrilateral(
              const ON_3dPoint& S,
              ON_NurbsSurface* nurbs_surface = nullptr
              );
+
+
+#if defined(ON_DLL_TEMPLATE)
+ON_DLL_TEMPLATE template class ON_CLASS ON_ClassArray<ON_SimpleArray<ON_3dPoint>>;
+ON_DLL_TEMPLATE template class ON_CLASS ON_ClassArray<ON_SimpleArray<ON_3dVector>>;
+#endif
+
+
+/*
+Description:
+  Create an ON_NurbsSurface satisfying Hermite interpolation conditions at a grid of points.
+Remarks:
+  See static ON_NurbsSurface::CreateHermiteSurface for details.
+*/
+class ON_CLASS ON_HermiteSurface
+{
+public:
+  ON_HermiteSurface();
+  // Constructs a u_count by v_count grid.
+  ON_HermiteSurface(int u_count, int v_count);
+  ~ON_HermiteSurface();
+
+  // Constructs a u_count by v_count grid.
+  bool Create(int u_count, int v_count);
+  bool IsValid() const;
+
+  // Returns the number of parameters in the "u" direction.
+  int UCount() const;
+  // Returns the number of parameters in the "v" direction.
+  int VCount() const;
+
+  // Specifies the "u" parameters defining the grid of parameter values.
+  // These parameters are strictly increasing.
+  double UParameterAt(int u) const;
+  void SetUParameterAt(int u, double param);
+
+  // Specifies the "v" parameters defining the grid of parameter values.
+  // These parameters are strictly increasing.
+  double VParameterAt(int v) const;
+  void SetVParameterAt(int v, double param);
+
+  // Grid of points to interpolate.
+  ON_3dPoint PointAt(int u, int v) const;
+  void SetPointAt(int u, int v, const ON_3dPoint& point);
+
+  // Grid of "u" tangent directions (actually first derivatives) to interpolate.
+  ON_3dVector UTangentAt(int u, int v) const;
+  void SetUTangentAt(int u, int v, const ON_3dVector& dir);
+
+  // Grid of "v" tangent directions (actually first derivatives) to interpolate.
+  ON_3dVector VTangentAt(int u, int v) const;
+  void SetVTangentAt(int u, int v, const ON_3dVector& dir);
+
+  // Grid of twist vectors (mixed second partial derivatives) to interpolate.
+  ON_3dVector TwistAt(int u, int v) const;
+  void SetTwistAt(int u, int v, const ON_3dVector& dir);
+
+  // Create an ON_NurbsSurface satisfying Hermite interpolation conditions at a grid of points
+  ON_NurbsSurface* NurbsSurface(ON_NurbsSurface* pNurbsSurface = nullptr);
+
+public:
+  // The "u" parameters defining the grid of parameter values.
+  const ON_SimpleArray<double>& UParameters() const;
+  // The "v" parameters defining the grid of parameter values.
+  const ON_SimpleArray<double>& VParameters() const;
+  // Grid of points to interpolate.
+  const ON_ClassArray<ON_SimpleArray<ON_3dPoint>>& GridPoints() const;
+  // Grid of "u" tangent directions (actually first derivatives) to interpolate.
+  const ON_ClassArray<ON_SimpleArray<ON_3dVector>>& UTangents() const;
+  // Grid of "v" tangent directions (actually first derivatives) to interpolate.
+  const ON_ClassArray<ON_SimpleArray<ON_3dVector>>& VTangents() const;
+  // Grid of twist vectors (mixed second partial derivatives) to interpolate.
+  const ON_ClassArray<ON_SimpleArray<ON_3dVector>>& Twists() const;
+
+private:
+  int m_u_count;
+  int m_v_count;
+  ON_SimpleArray<double> m_u_parameters;
+  ON_SimpleArray<double> m_v_parameters;
+  ON_ClassArray<ON_SimpleArray<ON_3dPoint>> m_grid_points;
+  ON_ClassArray<ON_SimpleArray<ON_3dVector>> m_u_tangents;
+  ON_ClassArray<ON_SimpleArray<ON_3dVector>> m_v_tangents;
+  ON_ClassArray<ON_SimpleArray<ON_3dVector>> m_twists;
+
+private:
+  ON_HermiteSurface(const ON_HermiteSurface&) = delete;
+  ON_HermiteSurface& operator=(const ON_HermiteSurface&) = default;
+  bool InBounds(int u, int v) const;
+  void Destroy();
+};
+
 
 #if defined(ON_DLL_TEMPLATE)
 ON_DLL_TEMPLATE template class ON_CLASS ON_ClassArray<ON_NurbsCurve>;

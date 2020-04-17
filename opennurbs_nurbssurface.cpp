@@ -3304,3 +3304,455 @@ bool ON_NurbsSurface::ConvertSpanToBezier(
   }
   return true;
 }
+
+static bool ValidateHermiteData(
+  const ON_SimpleArray<double>& u_Parameters,
+  const ON_SimpleArray<double>& v_Parameters,
+  const ON_ClassArray<ON_SimpleArray<ON_3dPoint>>& GridPoints,
+  const ON_ClassArray<ON_SimpleArray<ON_3dVector>>& u_Tangents,
+  const ON_ClassArray<ON_SimpleArray<ON_3dVector>>& v_Tangents,
+  const ON_ClassArray<ON_SimpleArray<ON_3dVector>>& TwistVectors)
+{
+  int n = u_Parameters.Count();
+  int m = v_Parameters.Count();
+  if (n < 2 || m < 2)
+    return false;
+
+  for (int i = 0; i < u_Parameters.Count() - 1; i++)
+    if (u_Parameters[i] >= u_Parameters[i + 1])
+      return false;
+
+  for (int j = 0; j < v_Parameters.Count() - 1; j++)
+    if (v_Parameters[j] >= v_Parameters[j + 1])
+      return false;
+
+  if (GridPoints.Count() != n)
+    return false;
+  for (int i = 0; i < GridPoints.Count(); i++)
+    if (GridPoints[i].Count() != m) 
+      return false;
+
+  if (u_Tangents.Count() != n)
+    return false;
+  for (int i = 0; i < u_Tangents.Count(); i++)
+    if (u_Tangents[i].Count() != m)
+      return false;
+
+  if (v_Tangents.Count() != n)
+    return false;
+  for (int i = 0; i < v_Tangents.Count(); i++)
+    if (v_Tangents[i].Count() != m)
+      return false;
+
+  if (TwistVectors.Count() != n)
+    return false;
+  for (int i = 0; i < TwistVectors.Count(); i++)
+    if (TwistVectors[i].Count() != m)
+      return false;
+
+  return true;
+}
+
+
+class ON_NurbsSurface* ON_NurbsSurface::CreateHermiteSurface(
+  const ON_SimpleArray<double>& u,
+  const ON_SimpleArray<double>& v,
+  const ON_ClassArray<ON_SimpleArray<ON_3dPoint>>& GridPoints,
+  const ON_ClassArray<ON_SimpleArray<ON_3dVector>>& u_Tan,
+  const ON_ClassArray<ON_SimpleArray<ON_3dVector>>& v_Tan,
+  const ON_ClassArray<ON_SimpleArray<ON_3dVector>>& Twist,
+  class ON_NurbsSurface* hsrf)
+{
+ if (!ValidateHermiteData( u, v, GridPoints, u_Tan, v_Tan, Twist ))
+   return nullptr;
+
+ int n = u.Count();
+ int m = v.Count();
+
+ if (hsrf == nullptr)
+ {
+   hsrf = ON_NurbsSurface::New();
+ }
+ const int dim = 3;
+ const int order = 4;
+
+ /* Surface has double knot in the interior*/
+ bool rc = hsrf->Create(dim, false, order, order, 2 * n , 2 * m );
+ if (rc)
+ {
+   // Set the knots duble interior knots
+   hsrf->SetKnot(0, 0, u[0]);
+   for (int i = 0; i < n; i++)
+   {
+     hsrf->SetKnot(0, 2*i + 1, u[i]);
+     hsrf->SetKnot(0, 2*i + 2, u[i]);
+   }
+   hsrf->SetKnot(0, 2*n + 1, u[n-1]);
+
+   hsrf->SetKnot(1, 0, v[0]);
+   for (int j = 0; j< m; j++)
+   {
+     hsrf->SetKnot(1, 2 * j + 1, v[j]);
+     hsrf->SetKnot(1, 2 * j + 2, v[j]);
+   }
+   hsrf->SetKnot(1, 2 * m + 1, v[m - 1]);
+
+
+   // Set corner GridPoints
+   hsrf->SetCV(  0  ,   0  , GridPoints[  0  ][  0  ]);
+   hsrf->SetCV(  0  , 2*m-1, GridPoints[  0  ][m - 1]);
+   hsrf->SetCV(2*n-1,   0  , GridPoints[n - 1][  0  ]);
+   hsrf->SetCV(2*n-1, 2*m-1, GridPoints[n - 1][m - 1]);
+
+   // set the points on v - isos edges
+   for (int j = 0; j < m - 1; j++)
+   {
+     double delv = 1.0 / 3.0 * (v[j + 1] - v[j]);
+     hsrf->SetCV(  0  , 2 * j + 1, GridPoints[ 0 ][  j  ] + delv * v_Tan[ 0 ][  j  ]);
+     hsrf->SetCV(  0  , 2 * j + 2, GridPoints[ 0 ][j + 1] - delv * v_Tan[ 0 ][j + 1]);
+     hsrf->SetCV(2*n-1, 2 * j + 1, GridPoints[n-1][  j  ] + delv * v_Tan[n-1][  j  ]);
+     hsrf->SetCV(2*n-1, 2 * j + 2, GridPoints[n-1][j + 1] - delv * v_Tan[n-1][j + 1]);
+   }
+
+   // set the points on u - isos edges
+   for (int i = 0; i < n - 1; i++)
+   {
+     double delu = 1.0 / 3.0 * (u[i + 1] - u[i]);
+     hsrf->SetCV(2 * i + 1,   0  , GridPoints[ i ][ 0 ] + delu * u_Tan[ i ][  0  ]);
+     hsrf->SetCV(2 * i + 2,   0  , GridPoints[i+1][ 0 ] - delu * u_Tan[i+1][  0  ]);
+     hsrf->SetCV(2 * i + 1, 2*m-1, GridPoints[ i ][m-1] + delu * u_Tan[ i ][ m-1 ]);
+     hsrf->SetCV(2 * i + 2, 2*m-1, GridPoints[i+1][m-1] - delu * u_Tan[i+1][ m-1 ]);
+   }
+
+
+   // set the interior points 
+   for( int i=0; i<n-1; i++)
+     for (int j = 0; j < m - 1; j++)
+     {
+       double delv = 1.0/3.0 * (v[j + 1] - v[j]);
+       double delu = 1.0/3.0 * (u[i + 1] - u[i]);
+       double deluv =  delu * delv;
+       hsrf->SetCV(2*i+1, 2*j+1, GridPoints[ i ][ j ] + ( delu * u_Tan[ i ][ j ] + delv * v_Tan[ i ][ j ]) + deluv * Twist[ i ][ j ]);
+       hsrf->SetCV(2*i+2, 2*j+1, GridPoints[i+1][ j ] + (-delu * u_Tan[i+1][ j ] + delv * v_Tan[i+1][ j ]) - deluv * Twist[i+1][ j ]);
+       hsrf->SetCV(2*i+1, 2*j+2, GridPoints[ i ][j+1] + ( delu * u_Tan[ i ][j+1] - delv * v_Tan[ i ][j+1]) - deluv * Twist[ i ][j+1]);
+       hsrf->SetCV(2*i+2, 2*j+2, GridPoints[i+1][j+1] + (-delu * u_Tan[i+1][j+1] - delv * v_Tan[i+1][j+1]) + deluv * Twist[i+1][j+1]);
+     }
+ }
+ if (!rc)
+   hsrf = nullptr;
+ return hsrf;
+ 
+}
+
+
+ON_HermiteSurface::ON_HermiteSurface()
+  : m_u_count(0)
+  , m_v_count(0)
+{
+}
+
+ON_HermiteSurface::ON_HermiteSurface(int u_count, int v_count)
+  : m_u_count(0)
+  , m_v_count(0)
+{
+  Create(u_count, v_count);
+}
+
+ON_HermiteSurface::~ON_HermiteSurface()
+{
+  Destroy();
+}
+
+bool ON_HermiteSurface::Create(int u_count, int v_count)
+{
+  Destroy();
+
+  if (u_count < 2 || v_count < 2)
+    return false;
+
+  m_u_count = u_count;
+  m_v_count = v_count;
+
+  m_u_parameters.SetCapacity(m_u_count);
+  m_u_parameters.SetCount(m_u_count);
+  for (int i = 0; i < m_u_count; i++)
+    m_u_parameters[i] = ON_UNSET_VALUE;
+
+  m_v_parameters.SetCapacity(m_v_count);
+  m_v_parameters.SetCount(m_v_count);
+  for (int i = 0; i < m_v_count; i++)
+    m_v_parameters[i] = ON_UNSET_VALUE;
+
+  m_grid_points.SetCapacity(m_u_count);
+  for (int i = 0; i < m_u_count; i++)
+  {
+    ON_SimpleArray<ON_3dPoint>& arr = m_grid_points.AppendNew();
+    arr.SetCapacity(m_v_count);
+    arr.SetCount(m_v_count);
+    arr.Zero();
+  }
+
+  m_u_tangents.SetCapacity(m_u_count);
+  for (int i = 0; i < m_u_count; i++)
+  {
+    ON_SimpleArray<ON_3dVector>& arr = m_u_tangents.AppendNew();
+    arr.SetCapacity(m_v_count);
+    arr.SetCount(m_v_count);
+    for (int j = 0; j < m_v_count; j++)
+      arr[j] = ON_3dPoint::UnsetPoint;
+  }
+
+  m_v_tangents.SetCapacity(m_u_count);
+  for (int i = 0; i < m_u_count; i++)
+  {
+    ON_SimpleArray<ON_3dVector>& arr = m_v_tangents.AppendNew();
+    arr.SetCapacity(m_v_count);
+    arr.SetCount(m_v_count);
+    for (int j = 0; j < m_v_count; j++)
+      arr[j] = ON_3dVector::UnsetVector;
+  }
+
+  m_twists.SetCapacity(m_u_count);
+  for (int i = 0; i < m_u_count; i++)
+  {
+    ON_SimpleArray<ON_3dVector>& arr = m_twists.AppendNew();
+    arr.SetCapacity(m_v_count);
+    arr.SetCount(m_v_count);
+    for (int j = 0; j < m_v_count; j++)
+      arr[j] = ON_3dVector::UnsetVector;
+  }
+
+  return true;
+}
+
+void ON_HermiteSurface::Destroy()
+{
+  m_u_parameters.Destroy();
+  m_v_parameters.Destroy();
+
+  for (int i = 0; i < m_grid_points.Count(); i++)
+    m_grid_points[i].Destroy();
+  m_grid_points.Destroy();
+
+  for (int i = 0; i < m_u_tangents.Count(); i++)
+    m_u_tangents[i].Destroy();
+  m_u_tangents.Destroy();
+
+  for (int i = 0; i < m_v_tangents.Count(); i++)
+    m_v_tangents[i].Destroy();
+  m_v_tangents.Destroy();
+
+  for (int i = 0; i < m_twists.Count(); i++)
+    m_twists[i].Destroy();
+  m_twists.Destroy();
+}
+
+bool ON_HermiteSurface::IsValid() const
+{
+  for (int i = 0; i < m_u_parameters.Count(); i++)
+  {
+    if (!ON_IsValid(m_u_parameters[i]))
+      return false;
+  }
+
+  for (int i = 0; i < m_v_parameters.Count(); i++)
+  {
+    if (!ON_IsValid(m_v_parameters[i]))
+      return false;
+  }
+
+  for (int i = 0; i < m_grid_points.Count(); i++)
+  {
+    for (int j = 0; j < m_grid_points[i].Count(); j++)
+    {
+      if (m_grid_points[i][j].IsUnset())
+        return false;
+    }
+  }
+
+  for (int i = 0; i < m_u_tangents.Count(); i++)
+  {
+    for (int j = 0; j < m_u_tangents[i].Count(); j++)
+    {
+      if (m_u_tangents[i][j].IsUnset())
+        return false;
+    }
+  }
+
+  for (int i = 0; i < m_v_tangents.Count(); i++)
+  {
+    for (int j = 0; j < m_v_tangents[i].Count(); j++)
+    {
+      if (m_v_tangents[i][j].IsUnset())
+        return false;
+    }
+  }
+
+  for (int i = 0; i < m_twists.Count(); i++)
+  {
+    for (int j = 0; j < m_twists[i].Count(); j++)
+    {
+      if (m_twists[i][j].IsUnset())
+        return false;
+    }
+  }
+  
+  return ValidateHermiteData(
+    UParameters(),
+    VParameters(),
+    GridPoints(),
+    UTangents(),
+    VTangents(),
+    Twists()
+  );
+}
+
+int ON_HermiteSurface::UCount() const
+{
+  return m_u_count;
+}
+
+int ON_HermiteSurface::VCount() const
+{
+  return m_v_count;
+}
+
+bool ON_HermiteSurface::InBounds(int u, int v) const
+{
+  return (
+    0 <= u &&
+    u < m_u_count &&
+    0 <= v &&
+    v < m_v_count
+    );
+}
+
+double ON_HermiteSurface::UParameterAt(int u) const
+{
+  double rc = ON_UNSET_VALUE;
+  if (0 <= u && u < m_u_count)
+    rc = m_u_parameters[u];
+  return rc;
+}
+
+void ON_HermiteSurface::SetUParameterAt(int u, double param)
+{
+  if (0 <= u && u < m_u_count)
+    m_u_parameters[u] = param;
+}
+
+double ON_HermiteSurface::VParameterAt(int v) const
+{
+  double rc = ON_UNSET_VALUE;
+  if (0 <= v && v < m_v_count)
+    rc = m_v_parameters[v];
+  return rc;
+}
+
+void ON_HermiteSurface::SetVParameterAt(int v, double param)
+{
+  if (0 <= v && v < m_v_count)
+    m_v_parameters[v] = param;
+}
+
+ON_3dPoint ON_HermiteSurface::PointAt(int u, int v) const
+{
+  ON_3dPoint rc = ON_3dPoint::UnsetPoint;
+  if (InBounds(u, v))
+    rc = m_grid_points[u][v];
+  return rc;
+}
+
+void ON_HermiteSurface::SetPointAt(int u, int v, const ON_3dPoint& point)
+{
+  if (InBounds(u, v))
+    m_grid_points[u][v] = point;
+}
+
+ON_3dVector ON_HermiteSurface::UTangentAt(int u, int v) const
+{
+  ON_3dVector rc = ON_3dVector::UnsetVector;
+  if (InBounds(u, v))
+    rc = m_u_tangents[u][v];
+  return rc;
+}
+
+void ON_HermiteSurface::SetUTangentAt(int u, int v, const ON_3dVector& dir)
+{
+  if (InBounds(u, v))
+    m_u_tangents[u][v] = dir;
+}
+
+ON_3dVector ON_HermiteSurface::VTangentAt(int u, int v) const
+{
+  ON_3dVector rc = ON_3dVector::UnsetVector;
+  if (InBounds(u, v))
+    rc = m_v_tangents[u][v];
+  return rc;
+}
+
+void ON_HermiteSurface::SetVTangentAt(int u, int v, const ON_3dVector& dir)
+{
+  if (InBounds(u, v))
+    m_v_tangents[u][v] = dir;
+}
+
+ON_3dVector ON_HermiteSurface::TwistAt(int u, int v) const
+{
+  ON_3dVector rc = ON_3dVector::UnsetVector;
+  if (InBounds(u, v))
+    rc = m_twists[u][v];
+  return rc;
+}
+
+void ON_HermiteSurface::SetTwistAt(int u, int v, const ON_3dVector& dir)
+{
+  if (InBounds(u, v))
+    m_twists[u][v] = dir;
+}
+
+const ON_SimpleArray<double>& ON_HermiteSurface::UParameters() const
+{
+  return m_u_parameters;
+}
+
+const ON_SimpleArray<double>& ON_HermiteSurface::VParameters() const
+{
+  return m_v_parameters;
+}
+
+const ON_ClassArray<ON_SimpleArray<ON_3dPoint>>& ON_HermiteSurface::GridPoints() const
+{
+  return m_grid_points;
+}
+
+const ON_ClassArray<ON_SimpleArray<ON_3dVector>>& ON_HermiteSurface::UTangents() const
+{
+  return m_u_tangents;
+}
+
+const ON_ClassArray<ON_SimpleArray<ON_3dVector>>& ON_HermiteSurface::VTangents() const
+{
+  return m_v_tangents;
+}
+
+const ON_ClassArray<ON_SimpleArray<ON_3dVector>>& ON_HermiteSurface::Twists() const
+{
+  return m_twists;
+}
+
+ON_NurbsSurface* ON_HermiteSurface::NurbsSurface(ON_NurbsSurface* pNurbsSurface)
+{
+  if (!IsValid())
+    return nullptr;
+
+  return ON_NurbsSurface::CreateHermiteSurface(
+    UParameters(),
+    VParameters(),
+    GridPoints(),
+    UTangents(),
+    VTangents(),
+    Twists(),
+    pNurbsSurface
+  );
+}
