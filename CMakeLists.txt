@@ -113,6 +113,9 @@ set(ON_INC
     opennurbs_private_wrap.h
     opennurbs_private_wrap_defs.h
     opennurbs_progress_reporter.h
+    opennurbs_public.h
+    opennurbs_public_examples.h
+    opennurbs_public_version.h
     opennurbs_qsort_template.h
     opennurbs_quacksort_template.h
     opennurbs_quaternion.h
@@ -131,6 +134,7 @@ set(ON_INC
     opennurbs_sumsurface.h
     opennurbs_surface.h
     opennurbs_surfaceproxy.h
+    opennurbs_symmetry.h
     opennurbs_system.h
     opennurbs_system_compiler.h
     opennurbs_system_runtime.h
