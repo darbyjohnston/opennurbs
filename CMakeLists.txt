@@ -319,6 +319,7 @@ set(ON_SRC
     opennurbs_sumsurface.cpp
     opennurbs_surface.cpp
     opennurbs_surfaceproxy.cpp
+    opennurbs_symmetry.cpp
     opennurbs_terminator.cpp
     #opennurbs_testclass.cpp
     opennurbs_text.cpp
